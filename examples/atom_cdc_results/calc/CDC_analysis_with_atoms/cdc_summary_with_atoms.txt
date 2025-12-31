@@ -1,0 +1,72 @@
+CDC Analysis Summary Report with Atom-Level Breakdown
+======================================================================
+
+Analysis performed with cutoff: 1000.0 cm⁻¹
+Total pigments analyzed: 11
+
+
+4_CLA_602:
+----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CLA_603:
+----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CLA_604:
+----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CLA_610:
+----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CLA_611:
+----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CLA_612:
+----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CHL_601:
+----------
+  Vacuum Energy: 15674.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CHL_606:
+----------
+  Vacuum Energy: 15674.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CHL_607:
+----------
+  Vacuum Energy: 15674.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CHL_608:
+----------
+  Vacuum Energy: 15674.0 cm⁻¹
+  No significant contributions above cutoff
+
+
+4_CHL_609:
+----------
+  Vacuum Energy: 15674.0 cm⁻¹
+  No significant contributions above cutoff
+

@@ -1,0 +1,78 @@
+CDC Analysis Summary Report with Atom-Level Breakdown
+======================================================================
+
+Analysis performed with cutoff: 1 cm⁻¹
+Total pigments analyzed: 4
+
+
+A_CLA_1001:
+-----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  Total Energy Shift: +19.7 cm⁻¹
+  Final Site Energy: 14919.7 cm⁻¹
+
+  Major Contributing Residues:
+
+    B_CLA_1001: +27.23 cm⁻¹
+      (No dominant atoms above threshold)
+
+    D_CLA_1001: -5.37 cm⁻¹
+      (No dominant atoms above threshold)
+
+    C_CLA_1001: -2.16 cm⁻¹
+      (No dominant atoms above threshold)
+
+
+B_CLA_1001:
+-----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  Total Energy Shift: +17.9 cm⁻¹
+  Final Site Energy: 14917.9 cm⁻¹
+
+  Major Contributing Residues:
+
+    A_CLA_1001: +25.26 cm⁻¹
+      (No dominant atoms above threshold)
+
+    C_CLA_1001: -4.56 cm⁻¹
+      (No dominant atoms above threshold)
+
+    D_CLA_1001: -2.84 cm⁻¹
+      (No dominant atoms above threshold)
+
+
+C_CLA_1001:
+-----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  Total Energy Shift: +21.0 cm⁻¹
+  Final Site Energy: 14921.0 cm⁻¹
+
+  Major Contributing Residues:
+
+    D_CLA_1001: +28.40 cm⁻¹
+      (No dominant atoms above threshold)
+
+    B_CLA_1001: -4.92 cm⁻¹
+      (No dominant atoms above threshold)
+
+    A_CLA_1001: -2.48 cm⁻¹
+      (No dominant atoms above threshold)
+
+
+D_CLA_1001:
+-----------
+  Vacuum Energy: 14900.0 cm⁻¹
+  Total Energy Shift: +20.0 cm⁻¹
+  Final Site Energy: 14920.0 cm⁻¹
+
+  Major Contributing Residues:
+
+    C_CLA_1001: +27.82 cm⁻¹
+      (No dominant atoms above threshold)
+
+    A_CLA_1001: -4.48 cm⁻¹
+      (No dominant atoms above threshold)
+
+    B_CLA_1001: -3.38 cm⁻¹
+      (No dominant atoms above threshold)
+

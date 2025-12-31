@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Site Energy Calculation Diagram</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#69c',
+        edgeLabelBackground: '#ffffff',
+        fontSize: '16px'
+      }
+    });
+  </script>
+  <style>
+    body { margin: 0; background: #fafafa; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    #diagram { width: 90%; }
+  </style>
+</head>
+<body>
+  <div id="diagram">
+```mermaid
+flowchart TD
+    A([📂 PDB File<br><sub>Raw structure data</sub>])
+    B([🛠️ ProteinStructure Loader<br><sub>from_file_extended()</sub>])
+    C([📦 Enhanced ProteinStructure<br><sub>Atoms with charges & metadata</sub>])
+    D([🌿 PigmentSystem Builder<br><sub>Identify pigments, create objects</sub>])
+    E([🌐 PigmentSystem Object<br><sub>Pigments + protein link</sub>])
+    F([⚡ SiteEnergyCalculator<br><sub>calculate_site_energy()</sub>])
+    G1([💥 ΔE<sub>protein</sub><br><sub>Protein-pigment interactions</sub>])
+    G2([🔗 ΔE<sub>pigments</sub><br><sub>Pigment-pigment interactions</sub>])
+    H([🎯 Site Energies<br><sub>Final E<sub>site</sub> values</sub>])
+
+    A -->|Load file| B
+    B -->|Parse & assign| C
+    C -->|Scan structure| D
+    D -->|Build system| E
+    E -->|Calculate| F
+    F --> G1
+    F --> G2
+    G1 -->|Sum| H
+    G2 -->|Sum| H
+
+    style A fill:#ffebf7,stroke:#333,stroke-width:2px
+    style B fill:#e0f7fa,stroke:#333,stroke-width:2px
+    style C fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style D fill:#fff3e0,stroke:#333,stroke-width:2px
+    style E fill:#f3e5f5,stroke:#333,stroke-width:2px
+    style F fill:#e1bee7,stroke:#333,stroke-width:2px
+    style G1 fill:#dcedc8,stroke:#333,stroke-width:2px
+    style G2 fill:#ffe0b2,stroke:#333,stroke-width:2px
+    style H fill:#bbdefb,stroke:#333,stroke-width:3px
