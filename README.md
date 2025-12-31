@@ -12,7 +12,7 @@
 
 </div>
 
-# Alprotein
+# Alprotein: A modular toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates
 
 Alprotein is a modular Python toolkit for calculating excitonic Hamiltonians, site energies, and optical spectra of pigment protein complexes from structural data.
 
@@ -32,8 +32,8 @@ It is designed for computational biophysics workflows where you start from a PDB
 ### From source
 
 ```bash
-git clone https://github.com/melrefaiy2018/Alprotein-Alpha.git
-cd Alprotein-Alpha
+git clone https://github.com/melrefaiy2018/Alprotein.git
+cd Alprotein
 pip install -e .
 ```
 
@@ -88,10 +88,9 @@ If you use Alprotein in published work, please cite:
 
 ```bibtex
 @software{Alprotein,
-  title={Alprotein: A modular toolkit for pigment-protein complex excitonics and spectra},
-  author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
+title={Alprotein: A modular toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates},  author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
   year={2025},
   version={0.2.0},
-  url={https://github.com/melrefaiy2018/Alprotein-Alpha}
+  url={https://github.com/melrefaiy2018/Alprotein}
 }
 ```
