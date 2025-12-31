@@ -266,4 +266,4 @@ We welcome contributions! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for
 
 ## Contact
 
-For any questions or support, please reach out to [your_email@example.com].
+For any questions or support, please reach out to [melrefaiy@utexas.edu].
