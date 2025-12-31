@@ -252,7 +252,8 @@ If you use Alprotein in published work, please cite:
 
 ```bibtex
 @software{Alprotein,
-title={Alprotein: A modular toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates},  author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
+  title={Alprotein: A modular toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates},  author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
+  author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
   year={2025},
   version={0.2.0},
   url={https://github.com/melrefaiy2018/Alprotein}
