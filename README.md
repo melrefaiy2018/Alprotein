@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="Alprotein Logo" width="600"/>
+  <img src="docs/assets/logo.png" alt="Alprotein Logo" width="600"/>
 </div>
 
 <div align="center">

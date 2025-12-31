@@ -71,8 +71,6 @@ exclude = ["Alprotein.scratch", "examples*", "tests*"]
 [tool.setuptools.package-data]
 Alprotein = [
     "data/*.py",
-    "examples/*.pdb", 
-    "examples/*.py",
     "pdb/*.pdb",
     "utils/*.pdb",
     "utils/*.md"
