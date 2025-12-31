@@ -33,6 +33,7 @@ It is designed for computational biophysics workflows where you start from a PDB
 
 ```bash
 git clone https://github.com/melrefaiy2018/Alprotein.git
+conda create -n alprotein python=3.11 
 cd Alprotein
 pip install -e .
 ```
@@ -44,13 +45,17 @@ pip install -e .
 - BioPython
 - matplotlib
 
-## Quick start
+## Usage Examples
+
+Here are some basic usage examples to get you started:
 
 ```python
 from Alprotein import ProteinStructure, PigmentSystem, ChlorophyllA, HamiltonianCalculator
 
+# Load a protein structure
 protein = ProteinStructure.from_file("structure.pdb", name="MyComplex")
 
+# Identify pigments and build pigment systems
 pigment_system = PigmentSystem(protein)
 pigment_system.add_pigments_by_residue(
     resname="CLA",
@@ -59,6 +64,13 @@ pigment_system.add_pigments_by_residue(
     cdc_dict_name="CLA",
 )
 
+# Compute pigment site energies using CDC
+site_energies = pigment_system.compute_site_energies()
+
+# Compute pigment to pigment couplings using TrEsp or dipole approximations
+couplings = pigment_system.compute_couplings(method="TrEsp")
+
+# Construct and diagonalize excitonic Hamiltonians
 calculator = HamiltonianCalculator(pigment_system)
 H = calculator.construct_hamiltonian()
 eigs, vecs = calculator.diagonalize_hamiltonian(H)
@@ -74,9 +86,6 @@ print("Exciton energies (cm^-1):", eigs)
 - `Alprotein/data/` parameter sets for supported pigment types
 - `examples/` runnable examples and workflows
 
-## Documentation
-
-For a more detailed technical explanation of the computation pipeline, see `agent.md`.
 
 ## License
 
@@ -94,3 +103,11 @@ title={Alprotein: A modular toolkit for excitonic Hamiltonians and optical spect
   url={https://github.com/melrefaiy2018/Alprotein}
 }
 ```
+
+## Contributing
+
+We welcome contributions! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
+
+## Contact
+
+For any questions or support, please reach out to [your_email@example.com].
