@@ -3,6 +3,10 @@
 </div>
 
 <div align="center">
+  <img src="docs/assets/alprotein_gif.gif" alt="Alprotein Demo" width="800"/>
+</div>
+
+<div align="center">
 
 [![Build Status](https://travis-ci.org/melrefaiy2018/Alprotein-Alpha.svg?branch=main)](https://travis-ci.org/melrefaiy2018/Alprotein-Alpha)
 [![codecov](https://codecov.io/gh/melrefaiy2018/Alprotein-Alpha/branch/main/graph/badge.svg)](https://codecov.io/gh/melrefaiy2018/Alprotein-Alpha)

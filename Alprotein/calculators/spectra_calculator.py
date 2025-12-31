@@ -1,12 +1,11 @@
 """
-Advanced Absorption Spectra Calculator using Renger Lineshape Theory
+Absorption and fluorescence spectra using Renger lineshape theory.
 
-Implements sophisticated spectral calculations including:
-- Spectral density functions (double-overdamped Brownian oscillator)
-- Phonon-exciton coupling with temperature dependence
-- 0-0 absorption (zero-phonon line)
-- 0-1 absorption (vibronic transitions)
-- Ensemble averaging with Gaussian disorder
+Provides the SpectraCalculator class for computing spectra with a
+double-overdamped Brownian oscillator spectral density, vibronic 0-0 and
+0-1 transitions, and ensemble averaging under Gaussian disorder.
+
+Units: energies in cm^-1, time in fs, wavelength in nm, dipoles in Debye.
 """
 
 import numpy as np
@@ -30,14 +29,14 @@ class SpectraCalculator:
                  dt,
                  t_max):
         """
-        Initialize spectra calculator
+        Initialize the spectra calculator and precompute core functions.
 
         Args:
-            temperature: Temperature in Kelvin
-            disorder_sigma: FWHM of Gaussian disorder in cm⁻¹
-            n_ensemble: Number of ensemble realizations
-            dt: Time axis step (fs)
-            t_max: Maximum time (fs)
+            temperature: Temperature in Kelvin.
+            disorder_sigma: FWHM of Gaussian disorder in cm^-1.
+            n_ensemble: Number of ensemble realizations.
+            dt: Time axis step in fs.
+            t_max: Maximum time in fs.
         """
         self.temperature = temperature
         self.disorder_sigma = disorder_sigma / (2 * np.sqrt(2 * np.log(2)))  # Convert FWHM to σ
@@ -71,7 +70,15 @@ class SpectraCalculator:
         self.g_t = self.calculate_g_function()
 
     def setup_axes(self):
-        """Setup time and frequency axes for calculations"""
+        """
+        Initialize time and frequency axes used by the calculator.
+
+        Sets:
+            self.t_axis: Time axis in fs.
+            self.w_axis: Frequency axis in cm^-1.
+            self.dw: Frequency step in cm^-1.
+            self.w_max: Maximum frequency in cm^-1.
+        """
         # Time axis for Fourier transforms
         self.t_axis = np.arange(0, self.t_max, self.dt)  # fs
 
@@ -82,13 +89,14 @@ class SpectraCalculator:
 
     def calculate_spectral_density(self):
         """
-        Calculate spectral density J(ω) using Renger's functional form
+        Calculate spectral density J(w) using Renger's functional form.
 
-        This uses the exact form from Renger et al. with exponential decay:
-        J(ω) = (S₀/(s₁+s₂)) * ω³/10080 * [s₁/ω₁⁴ exp(-√(ω/ω₁)) + s₂/ω₂⁴ exp(-√(ω/ω₂))]
+        Uses the exponential decay model from Renger et al.:
+        J(w) = (S0/(s1+s2)) * w^3/10080 * [s1/w1^4 exp(-sqrt(w/w1)) +
+        s2/w2^4 exp(-sqrt(w/w2))]
 
         Returns:
-            J_w: Spectral density array (cm⁻¹)
+            Spectral density array in cm^-1.
         """
         w = self.w_axis
 
@@ -108,15 +116,13 @@ class SpectraCalculator:
 
     def bose_einstein(self, w):
         """
-        Bose-Einstein distribution n(ω, T)
-
-        n(ω, T) = 1 / [exp(ħω/kT) - 1]
+        Compute the Bose-Einstein distribution n(w, T).
 
         Args:
-            w: Frequency (cm⁻¹)
+            w: Frequency array in cm^-1.
 
         Returns:
-            n: Bose-Einstein occupation number
+            Bose-Einstein occupation number array.
         """
         if self.temperature == 0:
             return np.zeros_like(w)
@@ -130,15 +136,13 @@ class SpectraCalculator:
 
     def calculate_g_function(self):
         """
-        Calculate phonon-exciton coupling function g(t)
+        Calculate the phonon-exciton coupling function g(t).
 
-        Using Renger's formulation:
-        g(t) = ∫ dω J(ω) [(1+n(ω))exp(-iωt) + n(ω)exp(iωt)]
-
-        where n(ω) is the Bose-Einstein distribution.
+        Implements Renger's formulation:
+        g(t) = integral d(w) J(w) [(1+n(w)) exp(-i w t) + n(w) exp(i w t)]
 
         Returns:
-            g_t: Complex line broadening function
+            Complex line broadening function array.
         """
         t = self.t_axis
         w = self.w_axis
@@ -165,17 +169,17 @@ class SpectraCalculator:
     def calculate_domain_exciton_properties(self, hamiltonian, domains, pigment_system,
                                            list_site_label=None, dict_dipole_by_site=None):
         """
-        Calculate exciton properties for each domain using Renger's approach
+        Calculate exciton properties for each domain.
 
         Args:
-            hamiltonian: Full Hamiltonian matrix (cm⁻¹)
-            domains: Dict {domain_id: [pigment_indices]}
-            pigment_system: PigmentSystem object
-            list_site_label: List of site labels (optional)
-            dict_dipole_by_site: Dict of dipole magnitudes by site (optional)
+            hamiltonian: Full Hamiltonian matrix in cm^-1.
+            domains: Mapping {domain_id: [pigment_indices]}.
+            pigment_system: PigmentSystem instance with pigment data.
+            list_site_label: Optional list of site labels.
+            dict_dipole_by_site: Optional mapping of dipole magnitudes by site.
 
         Returns:
-            Tuple of:
+            Tuple containing:
                 - dict_domain_coefficients: {domain_id: eigenvectors}
                 - dict_domain_energies: {domain_id: eigenvalues}
                 - dict_domain_dipoles: {domain_id: transition_dipole_vectors}
@@ -285,19 +289,25 @@ class SpectraCalculator:
     def calculate_spectra_renger(self, hamiltonian, domains, pigment_system,
                                 list_site_label=None, dict_dipole_by_site=None):
         """
-        Calculate absorption and fluorescence spectra using Renger's complete formulation
+        Calculate absorption and fluorescence spectra using Renger's formulation.
 
-        This follows the exact approach from the CP29_Doran reference implementation.
+        This follows the approach used in the CP29_Doran reference implementation.
 
         Args:
-            hamiltonian: Hamiltonian matrix (cm⁻¹)
-            domains: Dict {domain_id: [pigment_indices]}
-            pigment_system: PigmentSystem object
-            list_site_label: List of site labels (optional)
-            dict_dipole_by_site: Dict of dipole magnitudes by site (optional)
+            hamiltonian: Hamiltonian matrix in cm^-1.
+            domains: Mapping {domain_id: [pigment_indices]}.
+            pigment_system: PigmentSystem instance.
+            list_site_label: Optional list of site labels.
+            dict_dipole_by_site: Optional mapping of dipole magnitudes by site.
 
         Returns:
-            Tuple of (F_w, A_w, Fw_site, dict_exciton_fl_contribution, Aw_site, dict_exciton_a_contribution)
+            Tuple:
+                F_w: Fluorescence spectrum array.
+                A_w: Absorption spectrum array.
+                Fw_site: Site-level fluorescence spectrum.
+                dict_exciton_fl_contribution: Per-exciton fluorescence contributions.
+                Aw_site: Site-level absorption spectrum.
+                dict_exciton_a_contribution: Per-exciton absorption contributions.
         """
         # Get site labels if not provided
         if list_site_label is None:
@@ -484,23 +494,24 @@ class SpectraCalculator:
                           list_site_label=None, dict_dipole_by_site=None,
                           progress_callback=None):
         """
-        Calculate absorption and fluorescence spectra with ensemble averaging
+        Calculate absorption and fluorescence spectra with optional disorder.
 
         Args:
-            hamiltonian: NxN Hamiltonian matrix (cm⁻¹)
-            domains: Domain clustering from Hamiltonian tab
-            pigment_system: PigmentSystem object
-            include_vibronic: Include 0-1 vibronic transitions (always True for Renger method)
-            use_ensemble: Use ensemble averaging with disorder
-            list_site_label: List of site labels (optional)
-            dict_dipole_by_site: Dict of dipole magnitudes (optional)
+            hamiltonian: NxN Hamiltonian matrix in cm^-1.
+            domains: Domain clustering mapping.
+            pigment_system: PigmentSystem instance.
+            include_vibronic: Include 0-1 vibronic transitions (Renger method).
+            use_ensemble: Enable ensemble averaging with disorder.
+            list_site_label: Optional list of site labels.
+            dict_dipole_by_site: Optional mapping of dipole magnitudes.
+            progress_callback: Optional callback for progress updates.
 
         Returns:
-            Tuple of:
-                - wavelengths_abs: Wavelength axis for absorption (nm)
-                - absorption: Absorption spectrum (normalized)
-                - wavelengths_fl: Wavelength axis for fluorescence (nm)
-                - fluorescence: Fluorescence spectrum (normalized)
+            Tuple containing:
+                wavelengths_abs: Wavelength axis for absorption in nm.
+                absorption: Normalized absorption spectrum.
+                wavelengths_fl: Wavelength axis for fluorescence in nm.
+                fluorescence: Normalized fluorescence spectrum.
         """
         # Convert to numpy array if it's a DataFrame
         if hasattr(hamiltonian, 'values'):
