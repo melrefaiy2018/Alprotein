@@ -8,11 +8,8 @@
 
 <div align="center">
 
-[![Build Status](https://travis-ci.org/melrefaiy2018/Alprotein-Alpha.svg?branch=main)](https://travis-ci.org/melrefaiy2018/Alprotein-Alpha)
-[![codecov](https://codecov.io/gh/melrefaiy2018/Alprotein-Alpha/branch/main/graph/badge.svg)](https://codecov.io/gh/melrefaiy2018/Alprotein-Alpha)
-[![PyPI version](https://badge.fury.io/py/Alprotein.svg)](https://badge.fury.io/py/Alprotein)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/melrefaiy2018/Alprotein-Alpha.svg?style=social&label=Star)](https://github.com/melrefaiy2018/Alprotein-Alpha)
+[![GitHub stars](https://img.shields.io/github/stars/melrefaiy2018/Alprotein.svg?style=social&label=Star)](https://github.com/melrefaiy2018/Alprotein)
 
 </div>
 
