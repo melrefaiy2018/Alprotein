@@ -3,24 +3,40 @@
 </div>
 
 
-# Alprotein: A modular toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates
+# Alprotein: Interactive GUI and scripting toolkit for excitonic Hamiltonians and optical spectra
 
-Alprotein is a modular Python toolkit for calculating excitonic Hamiltonians, site energies, and optical spectra of pigment protein complexes from structural data.
+**Alprotein makes complex excitonic calculations accessible through an intuitive graphical interface**, while providing the full power of a Python API for advanced users and automation.
 
-It is designed for computational biophysics workflows where you start from a PDB structure, identify pigments, compute pigment site energies and couplings, and then derive excitonic properties and spectra.
+Unlike traditional command-line only tools, Alprotein features a **modern GUI workbench** that guides you through the entire workflow—from loading PDB structures to visualizing optical spectra—without writing a single line of code. For researchers who need automation or custom workflows, the same functionality is available through a clean Python API.
 
 <div align="center">
-  <img src="docs/assets/alprotein_gif.gif" alt="Alprotein Demo" width="800"/>
+  <img src="docs/assets/alprotein_gif.gif" alt="Alprotein GUI Demo" width="800"/>
+  <p><i>Interactive GUI for calculating excitonic properties and optical spectra</i></p>
 </div>
 
-## Key capabilities
+## Why Alprotein?
 
+### 🖥️ **GUI-First Design**
+- **Point-and-click workflow** - No programming required for standard calculations
+- **Interactive visualization** - Real-time 3D structure viewing and spectra plotting
+- **Guided parameter selection** - Built-in tooltips and validation
+- **Live feedback** - Watch calculations progress with detailed status updates
+- **Export-ready results** - One-click saving of Hamiltonians, spectra, and visualizations
+
+### 🐍 **Powerful Scripting When You Need It**
+- Full Python API for automation and batch processing
+- Integrate into existing computational pipelines
+- Custom workflows and analysis scripts
+- Reproducible, version-controlled calculations
+
+### 🔬 **Complete Workflow**
 - Load protein structures from PDB files
-- Identify pigments and build pigment systems
-- Compute pigment site energies using CDC
-- Compute pigment to pigment couplings using TrEsp or dipole approximations
-- Construct and diagonalize excitonic Hamiltonians
-- Export results for analysis and downstream modeling
+- Identify and configure pigments (Chlorophyll A, B, Bacteriochlorophyll, etc.)
+- Compute site energies using CDC method
+- Calculate pigment-pigment couplings (TrEsp or dipole approximation)
+- Build and diagonalize excitonic Hamiltonians
+- Generate absorption and fluorescence spectra with vibronic coupling
+- Define and analyze excitonic domains
 
 ## Installation
 
@@ -40,9 +56,34 @@ pip install -e .
 - BioPython
 - matplotlib
 
-## Usage Examples
+## Getting Started
 
-Here is a complete workflow example to get you started. This demonstrates how to calculate excitonic Hamiltonians and optical spectra from a PDB structure:
+### Using the GUI (Recommended for Most Users)
+
+Launch the interactive workbench:
+
+```bash
+python -m Alprotein.workbench
+# Or if you have the tools directory:
+# python tools/launch_workbench.py
+```
+
+The GUI provides a step-by-step workflow:
+
+1. **Load Structure** - Browse and load your PDB file
+2. **Configure Pigments** - Select pigment types and parameters from dropdown menus
+3. **Compute Properties** - Click to calculate site energies and couplings
+4. **Build Hamiltonian** - Set dielectric constants and construct the excitonic Hamiltonian
+5. **Calculate Spectra** - Configure temperature, disorder, and generate absorption/fluorescence spectra
+6. **Visualize & Export** - Interactive plots and one-click export of all results
+
+**No coding required** - the GUI handles all the complexity while giving you full control over parameters.
+
+---
+
+### Using the Python API (For Advanced Users & Automation)
+
+For scripting, batch processing, or integration into computational pipelines, here's a complete programmatic workflow:
 
 ```python
 import numpy as np
