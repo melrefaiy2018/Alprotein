@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Alprotein"
+version = "0.2.0"
+description = "A fast and modern package for calculating optical spectra of proteins from PDB files"
+readme = "README.md"
+authors = [
+    {name = "Mohamed Elrefaiy", email = "melrefaiy@example.edu"},
+    {name = "Bailey Raber", email = "braber@example.edu"},
+    {name = "Doran Raccah", email = "draccah@example.edu"}
+]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.18.0",
+    "scipy>=1.6.0",
+    "matplotlib>=3.2.0",
+    "pandas>=1.2.0",
+    "biopython>=1.78",
+    "numba>=0.50.0",
+    "tqdm>=4.50.0",
+    "h5py>=2.10.0",
+    "seaborn>=0.13.0",
+]
+
+[project.optional-dependencies]
+api = [
+    "flask>=2.0.0",
+    "flask-cors>=3.0.0",
+]
+dev = [
+    "pytest>=6.2.0",
+    "pytest-cov>=2.12.0",
+    "black>=21.6b0",
+    "isort>=5.9.0",
+    "flake8>=3.9.0",
+    "mypy>=0.910",
+    "sphinx>=4.0.0",
+    "pydocstyle>=6.3.0",
+]
+viz = [
+    "plotly>=5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/melrefaiy2018/Alprotein-Alpha"
+Documentation = "https://github.com/melrefaiy2018/Alprotein-Alpha"
+"Bug Tracker" = "https://github.com/melrefaiy2018/Alprotein-Alpha/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["Alprotein*"]
+exclude = ["Alprotein.scratch", "examples*", "tests*"]
+
+[tool.setuptools.package-data]
+Alprotein = [
+    "data/*.py",
+    "examples/*.pdb", 
+    "examples/*.py",
+    "pdb/*.pdb",
+    "utils/*.pdb",
+    "utils/*.md"
+]
+
+# Include documentation assets
+"*" = ["docs/assets/*.svg", "docs/assets/*.png", "*.md"]
+
+[tool.setuptools.exclude-package-data]
+Alprotein = ["scratch/**"]
+"examples" = ["atom_cdc_results/**", "__pycache__/**"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

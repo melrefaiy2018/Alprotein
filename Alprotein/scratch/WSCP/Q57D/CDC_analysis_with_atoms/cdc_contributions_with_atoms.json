@@ -1,0 +1,106 @@
+{
+  "A_CLA_1001": {
+    "vacuum": {
+      "total_contribution": 14900.0,
+      "atom_breakdown": {
+        "vacuum_energy": 14900.0
+      }
+    },
+    "B_CLA_1001": {
+      "total_contribution": 27.22847714331914,
+      "atom_breakdown": {
+        "pigment_interaction": 27.22847714331914
+      }
+    },
+    "C_CLA_1001": {
+      "total_contribution": -2.1574236962931694,
+      "atom_breakdown": {
+        "pigment_interaction": -2.1574236962931694
+      }
+    },
+    "D_CLA_1001": {
+      "total_contribution": -5.374437561281094,
+      "atom_breakdown": {
+        "pigment_interaction": -5.374437561281094
+      }
+    }
+  },
+  "B_CLA_1001": {
+    "vacuum": {
+      "total_contribution": 14900.0,
+      "atom_breakdown": {
+        "vacuum_energy": 14900.0
+      }
+    },
+    "A_CLA_1001": {
+      "total_contribution": 25.25755072043453,
+      "atom_breakdown": {
+        "pigment_interaction": 25.25755072043453
+      }
+    },
+    "C_CLA_1001": {
+      "total_contribution": -4.556833520810362,
+      "atom_breakdown": {
+        "pigment_interaction": -4.556833520810362
+      }
+    },
+    "D_CLA_1001": {
+      "total_contribution": -2.837381920676871,
+      "atom_breakdown": {
+        "pigment_interaction": -2.837381920676871
+      }
+    }
+  },
+  "C_CLA_1001": {
+    "vacuum": {
+      "total_contribution": 14900.0,
+      "atom_breakdown": {
+        "vacuum_energy": 14900.0
+      }
+    },
+    "A_CLA_1001": {
+      "total_contribution": -2.484082092228437,
+      "atom_breakdown": {
+        "pigment_interaction": -2.484082092228437
+      }
+    },
+    "B_CLA_1001": {
+      "total_contribution": -4.923163599734413,
+      "atom_breakdown": {
+        "pigment_interaction": -4.923163599734413
+      }
+    },
+    "D_CLA_1001": {
+      "total_contribution": 28.404707171398694,
+      "atom_breakdown": {
+        "pigment_interaction": 28.404707171398694
+      }
+    }
+  },
+  "D_CLA_1001": {
+    "vacuum": {
+      "total_contribution": 14900.0,
+      "atom_breakdown": {
+        "vacuum_energy": 14900.0
+      }
+    },
+    "A_CLA_1001": {
+      "total_contribution": -4.481383513498492,
+      "atom_breakdown": {
+        "pigment_interaction": -4.481383513498492
+      }
+    },
+    "B_CLA_1001": {
+      "total_contribution": -3.382985799248491,
+      "atom_breakdown": {
+        "pigment_interaction": -3.382985799248491
+      }
+    },
+    "C_CLA_1001": {
+      "total_contribution": 27.819708566290522,
+      "atom_breakdown": {
+        "pigment_interaction": 27.819708566290522
+      }
+    }
+  }
+}

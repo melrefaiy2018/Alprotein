@@ -1,0 +1,7 @@
+# Site Energy Calculation Results
+# PDB file: /Users/mohamed/Documents/Research/Projects/WSCP/2024_reppert/paper_data_2025/With_water/Q57D/most_occ/most_occ_pH1.pdb
+# Pigment_Name	Site_Energy_cm-1
+A_CLA_1001	14900.000977
+B_CLA_1001	14900.000977
+C_CLA_1001	14900.000977
+D_CLA_1001	14900.000977
