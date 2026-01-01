@@ -11,7 +11,8 @@ Integrates all workbench components into a professional scientific interface:
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QMessageBox, QFileDialog, QTabWidget, QLabel, QPushButton,
-    QDoubleSpinBox, QGroupBox, QFrame
+    QDoubleSpinBox, QGroupBox, QFrame, QGridLayout, QSizePolicy,
+    QScrollArea, QCheckBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from PyQt5.QtGui import QFont
@@ -323,173 +324,240 @@ class ScientificWorkbenchWindow(QWidget):
         main_layout.addWidget(main_splitter)
 
     def create_data_analysis_tab(self):
-        """Create enhanced Data Analysis tab with large, well-spaced plots"""
+        """Create enhanced Data Analysis tab with professional dashboard layout"""
         tab_widget = QWidget()
-        tab_layout = QVBoxLayout(tab_widget)
-        tab_layout.setContentsMargins(20, 20, 20, 20)
-        tab_layout.setSpacing(20)
+        tab_widget.setStyleSheet("background-color: #f7f7f7;")  # Light neutral background
+        
+        # Main grid layout for the tab content
+        main_layout = QVBoxLayout(tab_widget)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
 
-        # Header with Run button
-        header_layout = QHBoxLayout()
-        header_label = QLabel("Exciton Distribution Analysis")
-        header_label.setStyleSheet("""
-            QLabel {
-                font-size: 18px;
-                font-weight: bold;
-                color: #111111;
-                padding: 8px 0px;
-            }
-        """)
-        header_layout.addWidget(header_label)
+        # 1. Header Row
+        header_container = QWidget()
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Title
+        title_label = QLabel("Exciton Distribution Analysis")
+        title_label.setStyleSheet("font-size: 22px; font-weight: 600; color: #111111;")
+        header_layout.addWidget(title_label)
+        
         header_layout.addStretch()
-
-        self.run_exciton_btn = QPushButton("▶ Run Analysis")
-        self.run_exciton_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                border: 1px solid #111111;
-                padding: 12px 24px;
-                border-radius: 2px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-                border: 1px solid #cccccc;
-            }
-        """)
-        self.run_exciton_btn.setEnabled(False)  # Disabled until spectrum is calculated
-        self.run_exciton_btn.clicked.connect(self.run_exciton_distribution_calculation)
-        header_layout.addWidget(self.run_exciton_btn)
-
-        tab_layout.addLayout(header_layout)
-
-        # Axis controls section with frame
-        axis_frame = QFrame()
-        axis_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
-        axis_frame.setStyleSheet("""
+        
+        # Center: Wavelength Controls (Pill shape)
+        controls_frame = QFrame()
+        controls_frame.setStyleSheet("""
             QFrame {
-                background-color: #f9f9f9;
+                background-color: #ffffff;
                 border: 1px solid #e1e1e1;
-                border-radius: 3px;
-                padding: 12px;
+                border-radius: 20px;
+                padding: 4px;
             }
         """)
-        axis_frame_layout = QHBoxLayout(axis_frame)
-        axis_frame_layout.setContentsMargins(16, 12, 16, 12)
-        axis_frame_layout.setSpacing(12)
-
-        axis_label = QLabel("Wavelength Range:")
-        axis_label.setStyleSheet("color: #111111; font-size: 12px; font-weight: 600;")
-        axis_frame_layout.addWidget(axis_label)
-
+        controls_layout = QHBoxLayout(controls_frame)
+        controls_layout.setContentsMargins(16, 4, 16, 4)
+        controls_layout.setSpacing(10)
+        
+        wl_label = QLabel("Wavelength Range:")
+        wl_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #333333; border: none;")
+        controls_layout.addWidget(wl_label)
+        
+        # Spinboxes
+        spin_style = """
+            QDoubleSpinBox {
+                border: 1px solid #cccccc;
+                border-radius: 4px;
+                padding: 4px;
+                min-width: 80px;
+                background-color: #ffffff;
+                color: #111111;
+            }
+        """
         self.wl_min_spin = QDoubleSpinBox()
         self.wl_min_spin.setRange(400.0, 900.0)
         self.wl_min_spin.setDecimals(1)
         self.wl_min_spin.setSingleStep(1.0)
         self.wl_min_spin.setValue(self.wavelength_min_nm)
         self.wl_min_spin.setSuffix(" nm")
-        self.wl_min_spin.setMinimumWidth(100)
-        self.wl_min_spin.setStyleSheet("""
-            QDoubleSpinBox {
-                padding: 6px;
-                font-size: 12px;
-                border: 1px solid #cccccc;
-                border-radius: 2px;
-            }
-        """)
-        axis_frame_layout.addWidget(self.wl_min_spin)
-
-        dash_label = QLabel("–")
-        dash_label.setStyleSheet("color: #111111; font-size: 14px; font-weight: bold;")
-        axis_frame_layout.addWidget(dash_label)
-
+        self.wl_min_spin.setStyleSheet(spin_style)
+        
         self.wl_max_spin = QDoubleSpinBox()
         self.wl_max_spin.setRange(400.0, 900.0)
         self.wl_max_spin.setDecimals(1)
         self.wl_max_spin.setSingleStep(1.0)
         self.wl_max_spin.setValue(self.wavelength_max_nm)
         self.wl_max_spin.setSuffix(" nm")
-        self.wl_max_spin.setMinimumWidth(100)
-        self.wl_max_spin.setStyleSheet("""
-            QDoubleSpinBox {
-                padding: 6px;
-                font-size: 12px;
-                border: 1px solid #cccccc;
-                border-radius: 2px;
-            }
-        """)
-        axis_frame_layout.addWidget(self.wl_max_spin)
-
+        self.wl_max_spin.setStyleSheet(spin_style)
+        
+        controls_layout.addWidget(self.wl_min_spin)
+        dash_label = QLabel("–")
+        dash_label.setStyleSheet("color: #111111; font-weight: bold; border: none;")
+        controls_layout.addWidget(dash_label)
+        controls_layout.addWidget(self.wl_max_spin)
+        
         self.apply_axis_btn = QPushButton("Apply Range")
         self.apply_axis_btn.setStyleSheet("""
             QPushButton {
-                background-color: #ffffff;
+                background-color: #f0f0f0;
                 color: #111111;
-                border: 1px solid #111111;
-                padding: 8px 16px;
-                border-radius: 2px;
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 4px 12px;
                 font-weight: 600;
                 font-size: 12px;
             }
-            QPushButton:hover {
-                background-color: #efefef;
-            }
+            QPushButton:hover { background-color: #e0e0e0; }
         """)
         self.apply_axis_btn.clicked.connect(self.on_wavelength_range_applied)
-        axis_frame_layout.addWidget(self.apply_axis_btn)
-
-        axis_frame_layout.addStretch()
-
-        tab_layout.addWidget(axis_frame)
-
-        # Plots (2 side-by-side) with enhanced spacing and frames
-        plots_container = QWidget()
-        plots_layout = QHBoxLayout(plots_container)
-        plots_layout.setContentsMargins(0, 0, 0, 0)
-        plots_layout.setSpacing(20)
-
-        # Left plot: Exciton Distribution (in a framed group)
-        left_group = QGroupBox()
-        left_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                margin-top: 0px;
-                padding: 8px;
-                background-color: #ffffff;
+        controls_layout.addWidget(self.apply_axis_btn)
+        
+        header_layout.addWidget(controls_frame)
+        header_layout.addStretch()
+        
+        # Right: Run Button
+        self.run_exciton_btn = QPushButton("▶ Run Analysis")
+        self.run_exciton_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #111111;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-weight: 600;
+                font-size: 14px;
             }
+            QPushButton:hover { background-color: #333333; }
+            QPushButton:disabled { background-color: #cccccc; color: #888888; }
         """)
-        left_layout = QVBoxLayout(left_group)
-        left_layout.setContentsMargins(8, 8, 8, 8)
+        self.run_exciton_btn.clicked.connect(self.run_exciton_distribution_calculation)
+        self.run_exciton_btn.setEnabled(False)
+        header_layout.addWidget(self.run_exciton_btn)
+        
+        main_layout.addWidget(header_container)
+        
+        # 2. Chart Grid (12 columns)
+        grid_layout = QGridLayout()
+        grid_layout.setSpacing(20)
+        
+        # Helper to create card frame
+        def create_card():
+            card = QFrame()
+            card.setStyleSheet("""
+                QFrame {
+                    background-color: #ffffff;
+                    border: 1px solid #e1e1e1;
+                    border-radius: 12px;
+                }
+            """)
+            return card
+
+        # Left Card: Exciton Distribution (Span 7)
+        left_card = create_card()
+        left_layout = QVBoxLayout(left_card)
+        left_layout.setContentsMargins(16, 16, 16, 16)
+        
+        # Card Header
+        left_header = QHBoxLayout()
+        left_title = QLabel("Exciton Distribution")
+        left_title.setStyleSheet("font-size: 16px; font-weight: 600; border: none; color: #111111;")
+        left_header.addWidget(left_title)
+        left_header.addStretch()
+        
+        # Action buttons
+        btn_style = """
+            QPushButton { 
+                border: 1px solid #e1e1e1; 
+                border-radius: 4px; 
+                padding: 4px 8px; 
+                font-size: 11px; 
+                background: white; 
+                color: #333333;
+            } 
+            QPushButton:hover { background: #f9f9f9; }
+        """
+        details_btn = QPushButton("Details")
+        details_btn.setStyleSheet(btn_style)
+        export_btn = QPushButton("Export")
+        export_btn.setStyleSheet(btn_style)
+        left_header.addWidget(details_btn)
+        left_header.addWidget(export_btn)
+        
+        left_layout.addLayout(left_header)
+        
+        # Content Area: Plot + Side Legend
+        left_content = QHBoxLayout()
+        left_content.setSpacing(0)
+        
+        # Plot Area (Stretch 3)
         self.exciton_distribution_plot = MiniPlot("Exciton Distribution")
-        left_layout.addWidget(self.exciton_distribution_plot)
-        plots_layout.addWidget(left_group)
-
-        # Right plot: Combined Absorption + Exciton (in a framed group)
-        right_group = QGroupBox()
-        right_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                margin-top: 0px;
-                padding: 8px;
-                background-color: #ffffff;
-            }
+        left_content.addWidget(self.exciton_distribution_plot, stretch=3)
+        
+        # Side Legend Area (Stretch 1)
+        legend_container = QWidget()
+        legend_container.setStyleSheet("background-color: #ffffff; border-left: 1px solid #f0f0f0;")
+        legend_layout = QVBoxLayout(legend_container)
+        legend_layout.setContentsMargins(0, 0, 0, 0)
+        legend_layout.setSpacing(0)
+        
+        # Legend Header
+        legend_header = QLabel("Pigments")
+        legend_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #666666; padding: 8px 12px; border-bottom: 1px solid #f0f0f0;")
+        legend_layout.addWidget(legend_header)
+        
+        # Scrollable List
+        self.pigment_scroll = QScrollArea()
+        self.pigment_scroll.setWidgetResizable(True)
+        self.pigment_scroll.setFrameShape(QFrame.NoFrame)
+        self.pigment_scroll.setStyleSheet("""
+            QScrollArea { background: transparent; border: none; }
+            QScrollBar:vertical { width: 8px; background: #f0f0f0; }
+            QScrollBar::handle:vertical { background: #d0d0d0; border-radius: 4px; }
         """)
-        right_layout = QVBoxLayout(right_group)
-        right_layout.setContentsMargins(8, 8, 8, 8)
-        self.combined_exciton_plot = MiniPlot("Absorption & Exciton")
-        right_layout.addWidget(self.combined_exciton_plot)
-        plots_layout.addWidget(right_group)
-
-        tab_layout.addWidget(plots_container, stretch=1)
-
+        
+        self.pigment_list_widget = QWidget()
+        self.pigment_list_widget.setStyleSheet("background: transparent;")
+        self.pigment_list_layout = QVBoxLayout(self.pigment_list_widget)
+        self.pigment_list_layout.setContentsMargins(8, 8, 8, 8)
+        self.pigment_list_layout.setSpacing(4)
+        self.pigment_list_layout.addStretch() # Push items to top
+        
+        self.pigment_scroll.setWidget(self.pigment_list_widget)
+        legend_layout.addWidget(self.pigment_scroll)
+        
+        left_content.addWidget(legend_container, stretch=1)
+        left_layout.addLayout(left_content)
+        
+        grid_layout.addWidget(left_card, 0, 0, 2, 7) # Row 0, Col 0, RowSpan 2, ColSpan 7
+        
+        # Right Column (Span 5) - Single combined card
+        right_card = create_card()
+        right_layout = QVBoxLayout(right_card)
+        right_layout.setContentsMargins(16, 16, 16, 16)
+        
+        right_header = QHBoxLayout()
+        right_title = QLabel("Absorption & Exciton Analysis")
+        right_title.setStyleSheet("font-size: 16px; font-weight: 600; border: none; color: #111111;")
+        right_header.addWidget(right_title)
+        right_header.addStretch()
+        
+        right_details = QPushButton("Details")
+        right_details.setStyleSheet(btn_style)
+        right_header.addWidget(right_details)
+        
+        right_layout.addLayout(right_header)
+        
+        self.combined_analysis_plot = MiniPlot("Combined Analysis")
+        right_layout.addWidget(self.combined_analysis_plot)
+        
+        grid_layout.addWidget(right_card, 0, 7, 2, 5) # Row 0, Col 7, RowSpan 2, ColSpan 5
+        
+        # Set row stretches to be equal
+        grid_layout.setRowStretch(0, 1)
+        grid_layout.setRowStretch(1, 1)
+        
+        main_layout.addLayout(grid_layout)
+        
         return tab_widget
 
     def connect_signals(self):
@@ -1444,12 +1512,9 @@ class ScientificWorkbenchWindow(QWidget):
 
             # Debug logging
             logger.info(f"update_exciton_plots called with {len(labels)} labels")
-            logger.info(f"Distributions keys: {list(distributions.keys())[:5]}")
 
-            # Plot 1: Exciton Distribution for all pigments
-            # Use existing figure from MiniPlot widget
+            # Plot 1: Exciton Distribution for all pigments (Left Large Card)
             fig1 = self.exciton_distribution_plot.figure
-            logger.info(f"Got figure1: {fig1}")
             fig1.clear()
             ax1 = fig1.add_subplot(111)
 
@@ -1473,7 +1538,6 @@ class ScientificWorkbenchWindow(QWidget):
                 probs = probs[valid_mask]
                 
                 if len(wavelengths) < 3:
-                    logger.warning(f"Not enough data points for {label}")
                     continue
                 
                 # Create histogram bins for the wavelength range
@@ -1496,40 +1560,68 @@ class ScientificWorkbenchWindow(QWidget):
                 lines.append(line)
                 line_labels.append(label.split('_')[-1])
                 
-                # Add peak label
-                if len(hist_smooth) > 0:
-                    peak_idx = np.argmax(hist_smooth)
-                    peak_wl = bin_centers[peak_idx]
-                    peak_prob = hist_smooth[peak_idx]
-                    ax1.annotate(label.split('_')[-1], 
-                               xy=(peak_wl, peak_prob),
-                               xytext=(0, 8), textcoords='offset points',
-                               ha='center', fontsize=9, fontweight='bold',
-                               color=colors[i])
+                # Peak labels removed for clarity as requested
 
-            ax1.set_xlabel('Wavelength (nm)', fontsize=12, fontweight='bold')
-            ax1.set_ylabel('Density', fontsize=12, fontweight='bold')
-            ax1.set_title('Exciton Distribution', fontsize=13, fontweight='bold')
+            ax1.set_xlabel('Wavelength (nm)', fontsize=10, fontweight='bold')
+            ax1.set_ylabel('Density', fontsize=10, fontweight='bold')
+            ax1.tick_params(axis='both', which='major', labelsize=9)
             ax1.set_xlim(x_min, x_max)
             ax1.grid(True, alpha=0.3, linestyle='--')
             
-            # Adjust subplot to leave room for legend below
-            fig1.subplots_adjust(bottom=0.25)
+            # Adjust subplot to use full space (legend is now external)
+            # Increased left margin to ensure y-axis labels are fully visible
+            fig1.subplots_adjust(bottom=0.15, top=0.95, left=0.15, right=0.98)
             
-            # Create legend below the plot
-            if len(lines) > 0:
-                # Determine columns based on number of pigments
-                ncol = 2 if len(lines) <= 10 else (3 if len(lines) <= 20 else 4)
-                fontsize = 9 if len(lines) <= 10 else (8 if len(lines) <= 20 else 7)
+            # Populate the side pigment list
+            # Clear existing items
+            while self.pigment_list_layout.count() > 1: # Keep the stretch at the end
+                item = self.pigment_list_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            
+            # Add new items
+            for i, (line, label) in enumerate(zip(lines, line_labels)):
+                # Get color from line
+                color_rgba = line.get_color()
+                # Convert to hex for stylesheet
+                if isinstance(color_rgba, (tuple, list, np.ndarray)):
+                    # Matplotlib colors are 0-1, convert to 0-255 hex
+                    r, g, b = [int(c * 255) for c in color_rgba[:3]]
+                    hex_color = f"#{r:02x}{g:02x}{b:02x}"
+                else:
+                    hex_color = color_rgba # Already hex or string
                 
-                # Create legend using figure method (below the axis)
-                legend = fig1.legend(lines, line_labels, 
-                                    loc='lower center', ncol=ncol,
-                                    fontsize=fontsize, framealpha=0.95,
-                                    edgecolor='black', fancybox=True,
-                                    bbox_to_anchor=(0.5, 0.02))
-            
-            # Store lines for interactive toggling
+                item_widget = QWidget()
+                item_layout = QHBoxLayout(item_widget)
+                item_layout.setContentsMargins(4, 2, 4, 2)
+                item_layout.setSpacing(8)
+                
+                # Color indicator
+                color_box = QLabel()
+                color_box.setFixedSize(12, 12)
+                color_box.setStyleSheet(f"background-color: {hex_color}; border-radius: 6px;")
+                item_layout.addWidget(color_box)
+                
+                # Checkbox with label
+                chk = QCheckBox(label)
+                chk.setChecked(True)
+                chk.setStyleSheet("font-size: 11px; color: #333333;")
+                
+                # Connect checkbox to line visibility
+                # Use default argument to capture current line/chk
+                def toggle_line(state, l=line, c=chk):
+                    visible = (state == Qt.Checked)
+                    l.set_visible(visible)
+                    # Redraw
+                    fig1.canvas.draw()
+                    
+                chk.stateChanged.connect(toggle_line)
+                item_layout.addWidget(chk)
+                item_layout.addStretch()
+                
+                self.pigment_list_layout.insertWidget(i, item_widget)
+
+            # Store lines for interactive toggling (via plot click)
             self.exciton_distribution_plot.legend_lines = lines
             self.exciton_distribution_plot.legend_labels = line_labels
             
@@ -1537,193 +1629,125 @@ class ScientificWorkbenchWindow(QWidget):
             for line in lines:
                 line.set_picker(5)
             
-            # Connect click event to figure for legend interaction
-            fig1.canvas.mpl_connect('pick_event', 
-                lambda event: self.on_line_pick(event, fig1, lines, line_labels))
+            # Connect click event
+            # Update checkbox when line is clicked on plot
+            def on_plot_pick(event):
+                self.on_line_pick(event, fig1, lines, line_labels)
+                # Sync checkboxes
+                for i, line in enumerate(lines):
+                    # Find the checkbox widget at index i
+                    item = self.pigment_list_layout.itemAt(i)
+                    if item and item.widget():
+                        # The checkbox is the second widget in the layout (index 1)
+                        chk_widget = item.widget().layout().itemAt(1).widget()
+                        if isinstance(chk_widget, QCheckBox):
+                            chk_widget.blockSignals(True)
+                            chk_widget.setChecked(line.get_visible())
+                            chk_widget.blockSignals(False)
 
-            # Redraw the canvas
+            fig1.canvas.mpl_connect('pick_event', on_plot_pick)
+
             self.exciton_distribution_plot.canvas.draw()
-            self.exciton_distribution_plot.canvas.flush_events()
-            self.exciton_distribution_plot.update()  # Force widget repaint
-            logger.info("First plot drawn and flushed")
+            self.exciton_distribution_plot.update()
 
-            # Plot 2: Combined absorption + exciton (if spectrum available)
-            fig2 = self.combined_exciton_plot.figure
+            # Plot 2: Combined Analysis (Right Card)
+            # Combined Absorption (Top) and Exciton Subset (Bottom) sharing x-axis
+            fig2 = self.combined_analysis_plot.figure
             fig2.clear()
-
+            
+            # Create subplots sharing x-axis
+            # GridSpec allows for custom height ratios
+            gs = fig2.add_gridspec(2, 1, height_ratios=[1, 1.2], hspace=0.05)
+            ax_top = fig2.add_subplot(gs[0])
+            ax_bottom = fig2.add_subplot(gs[1], sharex=ax_top)
+            
+            # Top: Absorption Spectrum
             if self.spectrum_data is not None:
-                ax2_top = fig2.add_subplot(211)
-                ax2_bottom = fig2.add_subplot(212)
-
-                # Top: Absorption spectrum
                 wavelengths_abs = self.spectrum_data.get('wavelengths_abs',
                                                         self.spectrum_data.get('wavelengths'))
                 absorption = self.spectrum_data.get('absorption',
                                                    self.spectrum_data.get('spectrum'))
-                ax2_top.plot(wavelengths_abs, absorption, 'g-', linewidth=2.5, alpha=0.8)
-                ax2_top.set_ylabel('Absorption', fontsize=11, fontweight='bold')
-                ax2_top.set_xlim(x_min, x_max)
-                ax2_top.set_title('Absorption & Exciton', fontsize=13, fontweight='bold')
-                ax2_top.grid(True, alpha=0.3, linestyle='--')
-
-                # Store line objects for interactive legend
-                lines2 = []
-                line_labels2 = []
-
-                # Bottom: Exciton distributions as smooth Gaussian curves
-                for i, label in enumerate(labels[:5]):  # Show fewer for combined plot
-                    energies, probs = distributions[label]
-                    energies = np.array(energies)
-                    probs = np.array(probs)
-                    
-                    # Convert energies to wavelengths
-                    wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
-                    
-                    # Remove invalid values
-                    valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
-                    wavelengths = wavelengths[valid_mask]
-                    probs = probs[valid_mask]
-                    
-                    if len(wavelengths) < 3:
-                        continue
-                    
-                    # Create histogram bins
-                    bins = np.linspace(x_min, x_max, 200)
-                    hist, bin_edges = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
-                    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-                    
-                    # Normalize
-                    if hist.sum() > 0:
-                        hist = hist / hist.sum()
-                    
-                    # Gaussian smoothing
-                    hist_smooth = gaussian_filter1d(hist, sigma=3)
-                    
-                    # Plot smooth curve
-                    line, = ax2_bottom.plot(bin_centers, hist_smooth, linewidth=2.5,
-                                           label=label.split('_')[-1], 
-                                           color=colors[i], alpha=0.8)
-                    lines2.append(line)
-                    line_labels2.append(label.split('_')[-1])
-
-                ax2_bottom.set_xlabel('Wavelength (nm)', fontsize=11, fontweight='bold')
-                ax2_bottom.set_ylabel('Exciton Prob.', fontsize=11, fontweight='bold')
-                ax2_bottom.set_xlim(x_min, x_max)
-                ax2_bottom.grid(True, alpha=0.3, linestyle='--')
                 
-                # Adjust subplot to leave room for legend below
-                fig2.subplots_adjust(bottom=0.20)
+                # Plot absorption (black line as in reference)
+                ax_top.plot(wavelengths_abs, absorption, 'k-', linewidth=3.0, label='Absorption')
                 
-                # Create shared legend below both plots
-                if len(lines2) > 0:
-                    ncol = 2 if len(lines2) <= 5 else (3 if len(lines2) <= 10 else 4)
-                    fontsize = 8 if len(lines2) <= 5 else (7 if len(lines2) <= 10 else 6)
-                    
-                    # Create legend using figure method
-                    legend2 = fig2.legend(lines2, line_labels2,
-                                        loc='lower center', ncol=ncol,
-                                        fontsize=fontsize, framealpha=0.95,
-                                        edgecolor='black', fancybox=True,
-                                        bbox_to_anchor=(0.5, 0.02))
+                # If there's a second component (e.g. fluorescence or another spectrum), plot it too
+                # For now, let's just plot the main absorption clearly
                 
-                # Store lines for interactive toggling
-                self.combined_exciton_plot.legend_lines = lines2
-                self.combined_exciton_plot.legend_labels = line_labels2
+                ax_top.set_ylabel('Absorption (a.u.)', fontsize=10, fontweight='bold')
+                ax_top.tick_params(axis='both', which='major', labelsize=9)
+                ax_top.grid(False) # Clean look
                 
-                # Make lines interactive
-                for line in lines2:
-                    line.set_picker(5)
+                # Hide x-axis labels for top plot
+                plt.setp(ax_top.get_xticklabels(), visible=False)
                 
-                # Connect click event
-                fig2.canvas.mpl_connect('pick_event',
-                    lambda event: self.on_line_pick(event, fig2, lines2, line_labels2))
-
-                self.combined_exciton_plot.canvas.draw()
-                self.combined_exciton_plot.canvas.flush_events()
-                self.combined_exciton_plot.update()  # Force widget repaint
-                logger.info("Second plot (with spectrum) drawn and flushed")
+                # Remove top and right spines
+                ax_top.spines['top'].set_visible(False)
+                ax_top.spines['right'].set_visible(False)
             else:
-                # If no spectrum, just show exciton distribution in a different way
-                ax2 = fig2.add_subplot(111)
+                ax_top.text(0.5, 0.5, "No Spectrum Data", ha='center', va='center')
+                ax_top.axis('off')
 
-                # Store line objects for interactive legend
-                lines2 = []
-                line_labels2 = []
+            # Bottom: Exciton Subset (Density)
+            lines_subset = []
+            labels_subset = []
+            
+            # Plot subset of excitons (e.g. first 5-8 significant ones)
+            # Use a different color cycle or specific colors
+            subset_colors = plt.cm.tab10(np.linspace(0, 1, 10))
+            
+            for i, label in enumerate(labels[:8]): # Show a few more for the combined view
+                energies, probs = distributions[label]
+                energies = np.array(energies)
+                probs = np.array(probs)
+                wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
+                valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
+                wavelengths = wavelengths[valid_mask]
+                probs = probs[valid_mask]
+                
+                if len(wavelengths) < 3: continue
+                
+                bins = np.linspace(x_min, x_max, 200)
+                hist, _ = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
+                bin_centers = (bins[:-1] + bins[1:]) / 2
+                if hist.sum() > 0: hist = hist / hist.sum()
+                hist_smooth = gaussian_filter1d(hist, sigma=3)
+                
+                # Plot filled area for density look (like reference)
+                # ax_bottom.fill_between(bin_centers, hist_smooth, alpha=0.3, color=subset_colors[i % 10])
+                line, = ax_bottom.plot(bin_centers, hist_smooth, linewidth=2.0, 
+                                     label=label.split('_')[-1], color=subset_colors[i % 10], alpha=0.9)
+                lines_subset.append(line)
+                labels_subset.append(label.split('_')[-1])
+                
+                # Add small peak markers/labels if needed, but keeping it clean for now
+                # Reference image has small markers with numbers
 
-                # Show distributions as smooth Gaussian curves
-                for i, label in enumerate(labels[:15]):  # Show up to 15 pigments
-                    energies, probs = distributions[label]
-                    energies = np.array(energies)
-                    probs = np.array(probs)
-                    
-                    # Convert energies to wavelengths
-                    wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
-                    
-                    # Remove invalid values
-                    valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
-                    wavelengths = wavelengths[valid_mask]
-                    probs = probs[valid_mask]
-                    
-                    if len(wavelengths) >= 3:
-                        # Create histogram bins
-                        bins = np.linspace(x_min, x_max, 200)
-                        hist, bin_edges = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
-                        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-                        
-                        # Normalize
-                        if hist.sum() > 0:
-                            hist = hist / hist.sum()
-                        
-                        # Gaussian smoothing
-                        hist_smooth = gaussian_filter1d(hist, sigma=3)
-                        
-                        # Plot smooth curve
-                        line, = ax2.plot(bin_centers, hist_smooth, linewidth=2,
-                                       label=label.split('_')[-1], 
-                                       color=colors[i % len(colors)], alpha=0.7)
-                        lines2.append(line)
-                        line_labels2.append(label.split('_')[-1])
+            ax_bottom.set_xlabel('Wavelength (nm)', fontsize=10, fontweight='bold')
+            ax_bottom.set_ylabel('Density', fontsize=10, fontweight='bold')
+            ax_bottom.tick_params(axis='both', which='major', labelsize=9)
+            ax_bottom.set_xlim(x_min, x_max)
+            
+            # Clean look for bottom plot too
+            ax_bottom.spines['top'].set_visible(False)
+            ax_bottom.spines['right'].set_visible(False)
+            ax_bottom.grid(axis='x', alpha=0.3) # Vertical grid lines only
+            
+            # Adjust layout
+            # Increased left margin to ensure y-axis labels are fully visible
+            fig2.subplots_adjust(bottom=0.15, top=0.95, left=0.18, right=0.95)
+            
+            # Add legend for subset if needed, or rely on the main plot
+            # For the combined view, a small legend inside or below is good
+            if len(lines_subset) > 0:
+                ax_bottom.legend(lines_subset, labels_subset, loc='upper right', 
+                               ncol=2, fontsize=8, frameon=False)
 
-                ax2.set_xlabel('Wavelength (nm)', fontsize=11, fontweight='bold')
-                ax2.set_ylabel('Density', fontsize=11, fontweight='bold')
-                ax2.set_title('Exciton Distributions', fontsize=13, fontweight='bold')
-                ax2.set_xlim(x_min, x_max)
-                ax2.grid(True, alpha=0.3, linestyle='--')
-                
-                # Adjust subplot to leave room for legend below
-                fig2.subplots_adjust(bottom=0.25)
-                
-                # Create shared legend below the plot
-                if len(lines2) > 0:
-                    ncol = 3 if len(lines2) <= 15 else (4 if len(lines2) <= 20 else 5)
-                    fontsize = 7 if len(lines2) <= 15 else (6 if len(lines2) <= 20 else 5)
-                    
-                    # Create legend using figure method
-                    legend2 = fig2.legend(lines2, line_labels2,
-                                        loc='lower center', ncol=ncol,
-                                        fontsize=fontsize, framealpha=0.95,
-                                        edgecolor='black', fancybox=True,
-                                        bbox_to_anchor=(0.5, 0.02))
-                
-                # Store lines for interactive toggling
-                self.combined_exciton_plot.legend_lines = lines2
-                self.combined_exciton_plot.legend_labels = line_labels2
-                
-                # Make lines interactive
-                for line in lines2:
-                    line.set_picker(5)
-                
-                # Connect click event
-                fig2.canvas.mpl_connect('pick_event',
-                    lambda event: self.on_line_pick(event, fig2, lines2, line_labels2))
-
-                self.combined_exciton_plot.canvas.draw()
-                self.combined_exciton_plot.canvas.flush_events()
-                self.combined_exciton_plot.update()  # Force widget repaint
-                logger.info("Second plot (without spectrum) drawn and flushed")
+            self.combined_analysis_plot.canvas.draw()
+            self.combined_analysis_plot.update()
 
             logger.info("Exciton distribution plots updated successfully")
-            self.status_message.emit("Exciton distribution plots updated (click legend to toggle)")
+            self.status_message.emit("Exciton distribution plots updated")
 
         except Exception as e:
             import traceback
