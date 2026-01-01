@@ -92,10 +92,11 @@ class MiniPlotWidget(QWidget):
 
         layout.addLayout(header_layout)
 
-        # Plot area
-        self.figure = Figure(figsize=(4, 3), facecolor='white', dpi=80)
+        # Plot area - Enhanced with larger size and higher DPI
+        self.figure = Figure(figsize=(7, 5), facecolor='white', dpi=100)
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.canvas.setMinimumSize(500, 400)  # Set minimum size for better visibility
         layout.addWidget(self.canvas)
 
     def clear_plot(self):

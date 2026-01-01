@@ -10,7 +10,8 @@ Integrates all workbench components into a professional scientific interface:
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QMessageBox, QFileDialog, QTabWidget
+    QMessageBox, QFileDialog, QTabWidget, QLabel, QPushButton,
+    QDoubleSpinBox, QGroupBox, QFrame
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from PyQt5.QtGui import QFont
@@ -27,11 +28,12 @@ from Alprotein.gui.widgets.data_table_widget import DataTableWidget
 from Alprotein.gui.widgets.protein_viewer import ProteinViewer
 from Alprotein.gui.widgets.hamiltonian_widget import HamiltonianWidget
 from Alprotein.gui.widgets.spectrum_widget import SpectrumPlotWidget
-from Alprotein.gui.widgets.summary_cards_widget import SummaryCardsWidget
+# from Alprotein.gui.widgets.summary_cards_widget import SummaryCardsWidget
 from Alprotein.core.pigment_system import PigmentSystem
 from Alprotein.core.protein_structure import ProteinStructure
 from Alprotein.calculators.site_energy_calculator import SiteEnergyCalculator
 from Alprotein.calculators.hamiltonian_calculator import HamiltonianCalculator
+from Alprotein.calculators.exciton_calculator import ExcitonCalculator
 
 
 # PRD Color Palette
@@ -166,6 +168,28 @@ class CalculationWorker(QThread):
                 }
                 self.progress.emit("Spectrum calculated", 100)
 
+            elif self.calc_type == "exciton_distribution":
+                # Calculate exciton distributions
+                self.progress.emit("Calculating exciton distributions...", 10)
+
+                hamiltonian = self.kwargs['hamiltonian']
+                domains = self.kwargs['domains']
+                pigment_system = self.kwargs['pigment_system']
+
+                # Calculate distributions
+                distributions, labels = self.calculator.calculate_distributions(
+                    hamiltonian=hamiltonian,
+                    domains=domains,
+                    pigment_system=pigment_system
+                )
+
+                result = {
+                    'distributions': distributions,
+                    'labels': labels
+                }
+
+                self.progress.emit("Exciton distributions calculated", 100)
+
             else:
                 raise ValueError(f"Unknown calculation type: {self.calc_type}")
 
@@ -194,6 +218,7 @@ class ScientificWorkbenchWindow(QWidget):
         self.pigment_system: Optional[PigmentSystem] = None
         self.site_energy_calculator: Optional[SiteEnergyCalculator] = None
         self.hamiltonian_calculator: Optional[HamiltonianCalculator] = None
+        self.exciton_calculator: Optional[ExcitonCalculator] = None
 
         # Results storage
         self.site_energies: Dict[str, float] = {}
@@ -204,7 +229,13 @@ class ScientificWorkbenchWindow(QWidget):
         self.eigenvalues: Optional[np.ndarray] = None
         self.eigenvectors: Optional[np.ndarray] = None
         self.spectrum_data: Optional[Dict[str, np.ndarray]] = None
+        self.exciton_distributions: Optional[Dict] = None
+        self.exciton_labels: Optional[List[str]] = None
         self.pigment_labels: Optional[List[str]] = None
+
+        # Axes preferences for exciton plots
+        self.wavelength_min_nm: float = 600.0
+        self.wavelength_max_nm: float = 720.0
 
         # Worker threads
         self.current_worker: Optional[CalculationWorker] = None
@@ -292,34 +323,172 @@ class ScientificWorkbenchWindow(QWidget):
         main_layout.addWidget(main_splitter)
 
     def create_data_analysis_tab(self):
-        """Create enhanced Data Analysis tab with summary cards"""
+        """Create enhanced Data Analysis tab with large, well-spaced plots"""
         tab_widget = QWidget()
         tab_layout = QVBoxLayout(tab_widget)
-        tab_layout.setContentsMargins(16, 16, 16, 16)
-        tab_layout.setSpacing(16)
+        tab_layout.setContentsMargins(20, 20, 20, 20)
+        tab_layout.setSpacing(20)
 
-        # Summary cards at top
-        self.summary_cards = SummaryCardsWidget()
-        tab_layout.addWidget(self.summary_cards, stretch=0)
+        # Header with Run button
+        header_layout = QHBoxLayout()
+        header_label = QLabel("Exciton Distribution Analysis")
+        header_label.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                font-weight: bold;
+                color: #111111;
+                padding: 8px 0px;
+            }
+        """)
+        header_layout.addWidget(header_label)
+        header_layout.addStretch()
 
-        # Data table in middle
-        self.data_table = DataTableWidget()
-        tab_layout.addWidget(self.data_table, stretch=2)
+        self.run_exciton_btn = QPushButton("▶ Run Analysis")
+        self.run_exciton_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #111111;
+                color: #ffffff;
+                border: 1px solid #111111;
+                padding: 12px 24px;
+                border-radius: 2px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #000000;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+                border: 1px solid #cccccc;
+            }
+        """)
+        self.run_exciton_btn.setEnabled(False)  # Disabled until spectrum is calculated
+        self.run_exciton_btn.clicked.connect(self.run_exciton_distribution_calculation)
+        header_layout.addWidget(self.run_exciton_btn)
 
-        # Bottom plots (2 side-by-side)
-        plots_widget = QWidget()
-        plots_layout = QHBoxLayout(plots_widget)
-        plots_layout.setSpacing(16)
+        tab_layout.addLayout(header_layout)
 
-        # Left plot: Eigenvalue distribution
-        self.eigenvalue_plot = MiniPlot("Eigenvalue Distribution")
-        plots_layout.addWidget(self.eigenvalue_plot)
+        # Axis controls section with frame
+        axis_frame = QFrame()
+        axis_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+        axis_frame.setStyleSheet("""
+            QFrame {
+                background-color: #f9f9f9;
+                border: 1px solid #e1e1e1;
+                border-radius: 3px;
+                padding: 12px;
+            }
+        """)
+        axis_frame_layout = QHBoxLayout(axis_frame)
+        axis_frame_layout.setContentsMargins(16, 12, 16, 12)
+        axis_frame_layout.setSpacing(12)
 
-        # Right plot: Interaction plot
-        self.interaction_plot = MiniPlot("Coupling Interactions")
-        plots_layout.addWidget(self.interaction_plot)
+        axis_label = QLabel("Wavelength Range:")
+        axis_label.setStyleSheet("color: #111111; font-size: 12px; font-weight: 600;")
+        axis_frame_layout.addWidget(axis_label)
 
-        tab_layout.addWidget(plots_widget, stretch=1)
+        self.wl_min_spin = QDoubleSpinBox()
+        self.wl_min_spin.setRange(400.0, 900.0)
+        self.wl_min_spin.setDecimals(1)
+        self.wl_min_spin.setSingleStep(1.0)
+        self.wl_min_spin.setValue(self.wavelength_min_nm)
+        self.wl_min_spin.setSuffix(" nm")
+        self.wl_min_spin.setMinimumWidth(100)
+        self.wl_min_spin.setStyleSheet("""
+            QDoubleSpinBox {
+                padding: 6px;
+                font-size: 12px;
+                border: 1px solid #cccccc;
+                border-radius: 2px;
+            }
+        """)
+        axis_frame_layout.addWidget(self.wl_min_spin)
+
+        dash_label = QLabel("–")
+        dash_label.setStyleSheet("color: #111111; font-size: 14px; font-weight: bold;")
+        axis_frame_layout.addWidget(dash_label)
+
+        self.wl_max_spin = QDoubleSpinBox()
+        self.wl_max_spin.setRange(400.0, 900.0)
+        self.wl_max_spin.setDecimals(1)
+        self.wl_max_spin.setSingleStep(1.0)
+        self.wl_max_spin.setValue(self.wavelength_max_nm)
+        self.wl_max_spin.setSuffix(" nm")
+        self.wl_max_spin.setMinimumWidth(100)
+        self.wl_max_spin.setStyleSheet("""
+            QDoubleSpinBox {
+                padding: 6px;
+                font-size: 12px;
+                border: 1px solid #cccccc;
+                border-radius: 2px;
+            }
+        """)
+        axis_frame_layout.addWidget(self.wl_max_spin)
+
+        self.apply_axis_btn = QPushButton("Apply Range")
+        self.apply_axis_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                color: #111111;
+                border: 1px solid #111111;
+                padding: 8px 16px;
+                border-radius: 2px;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #efefef;
+            }
+        """)
+        self.apply_axis_btn.clicked.connect(self.on_wavelength_range_applied)
+        axis_frame_layout.addWidget(self.apply_axis_btn)
+
+        axis_frame_layout.addStretch()
+
+        tab_layout.addWidget(axis_frame)
+
+        # Plots (2 side-by-side) with enhanced spacing and frames
+        plots_container = QWidget()
+        plots_layout = QHBoxLayout(plots_container)
+        plots_layout.setContentsMargins(0, 0, 0, 0)
+        plots_layout.setSpacing(20)
+
+        # Left plot: Exciton Distribution (in a framed group)
+        left_group = QGroupBox()
+        left_group.setStyleSheet("""
+            QGroupBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                margin-top: 0px;
+                padding: 8px;
+                background-color: #ffffff;
+            }
+        """)
+        left_layout = QVBoxLayout(left_group)
+        left_layout.setContentsMargins(8, 8, 8, 8)
+        self.exciton_distribution_plot = MiniPlot("Exciton Distribution")
+        left_layout.addWidget(self.exciton_distribution_plot)
+        plots_layout.addWidget(left_group)
+
+        # Right plot: Combined Absorption + Exciton (in a framed group)
+        right_group = QGroupBox()
+        right_group.setStyleSheet("""
+            QGroupBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                margin-top: 0px;
+                padding: 8px;
+                background-color: #ffffff;
+            }
+        """)
+        right_layout = QVBoxLayout(right_group)
+        right_layout.setContentsMargins(8, 8, 8, 8)
+        self.combined_exciton_plot = MiniPlot("Absorption & Exciton")
+        right_layout.addWidget(self.combined_exciton_plot)
+        plots_layout.addWidget(right_group)
+
+        tab_layout.addWidget(plots_container, stretch=1)
 
         return tab_widget
 
@@ -348,9 +517,10 @@ class ScientificWorkbenchWindow(QWidget):
         self.spectrum_widget.parameters_changed.connect(self.on_spectra_parameters_changed)
 
         # Data table signals (Tab 3)
-        self.data_table.row_selected.connect(self.on_pigment_selected)
-        self.data_table.export_requested.connect(self.on_export_table)
-        self.data_table.plot_requested.connect(self.on_plot_from_table)
+        # Data table removed from Data Analysis tab
+        # self.data_table.row_selected.connect(self.on_pigment_selected)
+        # self.data_table.export_requested.connect(self.on_export_table)
+        # self.data_table.plot_requested.connect(self.on_plot_from_table)
 
     def on_file_dropped(self, file_path: str):
         """Handle file drop from drag-and-drop area"""
@@ -694,15 +864,10 @@ class ScientificWorkbenchWindow(QWidget):
         self.hamiltonian_widget.update_hamiltonian(self.hamiltonian, self.pigment_labels)
         self.hamiltonian_widget.update_eigenvalues(self.eigenvalues, self.eigenvectors)
 
-        self.eigenvalue_plot.plot_histogram(
-            self.eigenvalues,
-            "Energy (cm⁻¹)",
-            "Eigenvalue Distribution"
-        )
+        # Eigenvalue and interaction plots removed - replaced with exciton distribution plots
 
         if update_interactions:
-            self.summary_cards.update_interactions(self.hamiltonian)
-            self.interaction_plot.plot_heatmap(self.hamiltonian, "Coupling Matrix")
+            pass  # self.summary_cards.update_interactions(self.hamiltonian)
 
     def on_site_energy_updated(self, pigment_id: str, energy: float):
         """Handle user edits to site energy values"""
@@ -714,8 +879,9 @@ class ScientificWorkbenchWindow(QWidget):
             self.site_energy_overrides[pigment_id] = energy
 
         if self.vacuum_energies:
-            self.data_table.update_data(self.site_energies, self.vacuum_energies)
-        self.summary_cards.update_statistics(self.site_energies)
+            # self.data_table.update_data(self.site_energies, self.vacuum_energies)
+            pass
+        # self.summary_cards.update_statistics(self.site_energies)
         if self.site_energies:
             mean_energy = np.mean(list(self.site_energies.values()))
             self.tools_panel.update_result_status(
@@ -836,6 +1002,9 @@ class ScientificWorkbenchWindow(QWidget):
             t_max=2000.0  # fs
         )
 
+        # Store spectra_calculator for exciton distribution
+        self.spectra_calculator = spectra_calculator
+
         self.tools_panel.update_result_status("spectrum", "running")
         self.status_message.emit("Calculating absorption spectrum (Renger lineshape theory)...")
 
@@ -854,9 +1023,58 @@ class ScientificWorkbenchWindow(QWidget):
         self.current_worker.progress.connect(self.on_calculation_progress)
         self.current_worker.start()
 
+    def run_exciton_distribution_calculation(self):
+        """Calculate exciton distributions"""
+        if self.hamiltonian is None:
+            QMessageBox.warning(
+                self,
+                "Missing Data",
+                "Please calculate Hamiltonian first"
+            )
+            return
+
+        # Get domains from Hamiltonian widget
+        domains = self.hamiltonian_widget.get_current_domains()
+
+        # Create exciton calculator (share parameters with spectra calculator)
+        if hasattr(self, 'spectra_calculator') and self.spectra_calculator:
+            self.exciton_calculator = ExcitonCalculator(
+                disorder_sigma=self.spectra_calculator.disorder_sigma,
+                n_ensemble=self.spectra_calculator.n_ensemble,
+                temperature=self.spectra_calculator.temperature
+            )
+        else:
+            # Fallback if spectra not calculated yet
+            params = self.get_all_parameters()
+            self.exciton_calculator = ExcitonCalculator(
+                disorder_sigma=55.0,  # Default sigma (120 FWHM converted)
+                n_ensemble=params.get('n_ensemble', 100),
+                temperature=params.get('temperature', 77.0)
+            )
+
+        # Update tools panel status
+        self.tools_panel.update_result_status("exciton_distribution", "running")
+
+        self.status_message.emit("Calculating exciton distributions...")
+
+        # Run exciton distribution calculation in background
+        self.current_worker = CalculationWorker(
+            "exciton_distribution",
+            self.exciton_calculator,
+            hamiltonian=self.hamiltonian,
+            domains=domains,
+            pigment_system=self.pigment_system
+        )
+        self.current_worker.finished.connect(self.on_calculation_finished)
+        self.current_worker.error.connect(self.on_calculation_error)
+        self.current_worker.progress.connect(self.on_calculation_progress)
+        self.current_worker.start()
+
     def on_calculation_finished(self, calc_type: str, result: Any):
         """Handle calculation completion and distribute data to all tabs"""
         try:
+            logger.info(f"=== on_calculation_finished called with calc_type: '{calc_type}' ===")
+
             if calc_type == "site_energies":
                 self.calculated_site_energies = result
                 self.site_energies = self.apply_site_energy_overrides(result)
@@ -868,21 +1086,19 @@ class ScientificWorkbenchWindow(QWidget):
                     self.site_energies, pigment_labels
                 )
 
-                # Update Tab 3: Data table
-                self.data_table.update_data(
-                    self.site_energies,
-                    self.vacuum_energies
-                )
+                # Update Tab 3: Data table (removed)
+                # self.data_table.update_data(
+                #     self.site_energies,
+                #     self.vacuum_energies
+                # )
 
-                # Update Tab 3: Summary cards - Statistical Summary
-                self.summary_cards.update_statistics(self.site_energies)
-
-                # Update Tab 3: Summary cards - Pigment Counts
-                pig_counts = {}
-                for pig in self.pigment_system.pigments.values():
-                    res = pig.get_resname()
-                    pig_counts[res] = pig_counts.get(res, 0) + 1
-                self.summary_cards.update_pigments(pig_counts)
+                # Update Tab 3: Summary cards - REMOVED
+                # self.summary_cards.update_statistics(self.site_energies)
+                # pig_counts = {}
+                # for pig in self.pigment_system.pigments.values():
+                #     res = pig.get_resname()
+                #     pig_counts[res] = pig_counts.get(res, 0) + 1
+                # self.summary_cards.update_pigments(pig_counts)
 
                 # Calculate mean energy for status
                 mean_energy = np.mean(list(self.site_energies.values()))
@@ -915,11 +1131,11 @@ class ScientificWorkbenchWindow(QWidget):
                     self.site_energies, pigment_labels
                 )
 
-                self.data_table.update_data(
-                    self.site_energies,
-                    self.vacuum_energies
-                )
-                self.summary_cards.update_statistics(self.site_energies)
+                # self.data_table.update_data(
+                #     self.site_energies,
+                #     self.vacuum_energies
+                # )
+                # self.summary_cards.update_statistics(self.site_energies)
 
                 self.refresh_hamiltonian_displays(update_interactions=True)
 
@@ -991,6 +1207,13 @@ class ScientificWorkbenchWindow(QWidget):
                     self.status_message.emit(
                         f"Absorption and fluorescence spectra calculated successfully ({method_label} method)"
                     )
+
+                    # Enable exciton distribution button
+                    logger.info("Enabling exciton distribution button (new format)")
+                    self.run_exciton_btn.setEnabled(True)
+                    self.run_exciton_btn.update()  # Force GUI refresh
+                    logger.info(f"Button enabled state: {self.run_exciton_btn.isEnabled()}")
+
                 else:
                     # Old format: Only absorption (for backward compatibility)
                     wavelengths = result['wavelengths']
@@ -1017,6 +1240,30 @@ class ScientificWorkbenchWindow(QWidget):
 
                     self.status_message.emit(f"Spectrum calculated successfully ({method_label} method)")
 
+                    # Enable exciton distribution button
+                    logger.info("Enabling exciton distribution button")
+                    self.run_exciton_btn.setEnabled(True)
+                    self.run_exciton_btn.update()  # Force GUI refresh
+                    logger.info(f"Button enabled state: {self.run_exciton_btn.isEnabled()}")
+
+            elif calc_type == "exciton_distribution":
+                # Store exciton distributions
+                exciton_labels = result['labels']
+                self.exciton_distributions = result['distributions']
+                self.exciton_labels = exciton_labels
+
+                # Update tools panel status
+                self.tools_panel.update_result_status(
+                    "exciton_distribution",
+                    "complete",
+                    f"{len(exciton_labels)} pigments"
+                )
+
+                self.status_message.emit("Exciton distributions calculated successfully")
+
+                # Update plots in Data Analysis tab
+                self.update_exciton_plots(self.exciton_distributions, exciton_labels)
+
             # Auto-chain calculations if running complete workflow
             if self.run_all_flag:
                 if calc_type == "site_energies":
@@ -1028,6 +1275,10 @@ class ScientificWorkbenchWindow(QWidget):
                     self.status_message.emit("Auto-starting spectrum calculation...")
                     self.run_spectrum_calculation()
                 elif calc_type == "spectrum_renger" or calc_type == "spectrum":
+                    # After spectrum, run exciton distribution
+                    self.status_message.emit("Auto-starting exciton distribution calculation...")
+                    self.run_exciton_distribution_calculation()
+                elif calc_type == "exciton_distribution":
                     # Complete workflow finished
                     self.run_all_flag = False
                     self.status_message.emit("Complete workflow finished successfully!")
@@ -1037,7 +1288,8 @@ class ScientificWorkbenchWindow(QWidget):
                         "All calculations completed successfully!\n\n"
                         "✓ Site Energies\n"
                         "✓ Hamiltonian\n"
-                        "✓ Absorption & Fluorescence Spectra\n\n"
+                        "✓ Absorption & Fluorescence Spectra\n"
+                        "✓ Exciton Distributions\n\n"
                         "View results in all tabs."
                     )
 
@@ -1154,6 +1406,160 @@ class ScientificWorkbenchWindow(QWidget):
             )
             self.status_message.emit("Updated plots from data")
 
+    def on_wavelength_range_applied(self):
+        """Apply user-selected wavelength axis limits to exciton plots"""
+        min_val = self.wl_min_spin.value()
+        max_val = self.wl_max_spin.value()
+
+        if min_val >= max_val:
+            QMessageBox.warning(
+                self,
+                "Invalid Range",
+                "Minimum wavelength must be smaller than maximum."
+            )
+            return
+
+        self.wavelength_min_nm = min_val
+        self.wavelength_max_nm = max_val
+
+        if self.exciton_distributions and self.exciton_labels:
+            self.update_exciton_plots(self.exciton_distributions, self.exciton_labels)
+        else:
+            self.status_message.emit(
+                f"Wavelength range set to {min_val:.1f}–{max_val:.1f} nm (plots will update after calculation)"
+            )
+
+    def update_exciton_plots(self, distributions, labels):
+        """Update exciton distribution plots in Data Analysis tab"""
+        try:
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            # Persist labels for later range adjustments
+            self.exciton_labels = labels
+
+            x_min, x_max = self.wavelength_min_nm, self.wavelength_max_nm
+
+            # Debug logging
+            logger.info(f"update_exciton_plots called with {len(labels)} labels")
+            logger.info(f"Distributions keys: {list(distributions.keys())[:5]}")
+
+            # Plot 1: Exciton Distribution for all pigments
+            # Use existing figure from MiniPlot widget
+            fig1 = self.exciton_distribution_plot.figure
+            logger.info(f"Got figure1: {fig1}")
+            fig1.clear()
+            ax1 = fig1.add_subplot(111)
+
+            # Plot each pigment's distribution
+            colors = plt.cm.tab20(np.linspace(0, 1, len(labels)))
+            for i, label in enumerate(labels[:10]):  # Limit to first 10 for clarity
+                energies, probs = distributions[label]
+                wavelengths = [1e7 / e if e > 0 else 0 for e in energies]
+                # Use histogram focused on the selected wavelength window
+                ax1.hist(
+                    wavelengths,
+                    bins=30,
+                    range=(x_min, x_max),
+                    weights=probs,
+                    alpha=0.5,
+                    label=label.split('_')[-1],
+                    color=colors[i]
+                )
+
+            ax1.set_xlabel('Wavelength (nm)', fontsize=10)
+            ax1.set_ylabel('Probability', fontsize=10)
+            ax1.set_title('Exciton Distribution', fontsize=11, fontweight='bold')
+            ax1.set_xlim(x_min, x_max)
+            if len(labels) <= 10:
+                ax1.legend(fontsize=8, ncol=2)
+            fig1.tight_layout()
+
+            # Redraw the canvas
+            self.exciton_distribution_plot.canvas.draw()
+            self.exciton_distribution_plot.canvas.flush_events()
+            self.exciton_distribution_plot.update()  # Force widget repaint
+            logger.info("First plot drawn and flushed")
+
+            # Plot 2: Combined absorption + exciton (if spectrum available)
+            fig2 = self.combined_exciton_plot.figure
+            fig2.clear()
+
+            if self.spectrum_data is not None:
+                ax2_top = fig2.add_subplot(211)
+                ax2_bottom = fig2.add_subplot(212)
+
+                # Top: Absorption spectrum
+                wavelengths_abs = self.spectrum_data.get('wavelengths_abs',
+                                                        self.spectrum_data.get('wavelengths'))
+                absorption = self.spectrum_data.get('absorption',
+                                                   self.spectrum_data.get('spectrum'))
+                ax2_top.plot(wavelengths_abs, absorption, 'g-', linewidth=2, alpha=0.7)
+                ax2_top.set_ylabel('Absorption', fontsize=9)
+                ax2_top.set_xlim(x_min, x_max)
+                ax2_top.set_title('Absorption & Exciton', fontsize=11, fontweight='bold')
+
+                # Bottom: Exciton distributions
+                for i, label in enumerate(labels[:5]):  # Show fewer for combined plot
+                    energies, probs = distributions[label]
+                    wavelengths = [1e7 / e if e > 0 else 0 for e in energies]
+                    ax2_bottom.hist(
+                        wavelengths,
+                        bins=30,
+                        range=(x_min, x_max),
+                        weights=probs,
+                        alpha=0.5,
+                        label=label.split('_')[-1],
+                        color=colors[i]
+                    )
+
+                ax2_bottom.set_xlabel('Wavelength (nm)', fontsize=9)
+                ax2_bottom.set_ylabel('Exciton Prob.', fontsize=9)
+                ax2_bottom.set_xlim(x_min, x_max)
+                if len(labels) <= 5:
+                    ax2_bottom.legend(fontsize=7, ncol=2)
+                fig2.tight_layout()
+
+                self.combined_exciton_plot.canvas.draw()
+                self.combined_exciton_plot.canvas.flush_events()
+                self.combined_exciton_plot.update()  # Force widget repaint
+                logger.info("Second plot (with spectrum) drawn and flushed")
+            else:
+                # If no spectrum, just show exciton distribution in a different way
+                ax2 = fig2.add_subplot(111)
+
+                # Show mean exciton energy for each pigment as a bar plot
+                mean_energies = []
+                pig_names = []
+                for label in labels[:15]:  # Show up to 15 pigments
+                    energies, probs = distributions[label]
+                    if energies and probs:
+                        mean_e = np.average(energies, weights=probs)
+                        mean_energies.append(1e7 / mean_e if mean_e > 0 else 0)
+                        pig_names.append(label.split('_')[-1])
+
+                ax2.barh(range(len(mean_energies)), mean_energies, color='steelblue', alpha=0.7)
+                ax2.set_yticks(range(len(pig_names)))
+                ax2.set_yticklabels(pig_names, fontsize=8)
+                ax2.set_xlabel('Mean Wavelength (nm)', fontsize=10)
+                ax2.set_title('Mean Exciton Wavelengths', fontsize=11, fontweight='bold')
+                ax2.set_xlim(x_min, x_max)
+                fig2.tight_layout()
+
+                self.combined_exciton_plot.canvas.draw()
+                self.combined_exciton_plot.canvas.flush_events()
+                self.combined_exciton_plot.update()  # Force widget repaint
+                logger.info("Second plot (without spectrum) drawn and flushed")
+
+            logger.info("Exciton distribution plots updated successfully")
+            self.status_message.emit("Exciton distribution plots updated")
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            logger.error(f"Failed to update exciton plots: {e}\n{error_details}")
+            self.status_message.emit(f"Error updating exciton plots: {str(e)}")
+
     def clear_all_data(self):
         """Clear all loaded data and results"""
         self.pigment_system = None
@@ -1165,14 +1571,22 @@ class ScientificWorkbenchWindow(QWidget):
         self.eigenvalues = None
         self.eigenvectors = None
         self.spectrum_data = None
+        self.exciton_distributions = None
+        self.exciton_labels = None
         self.pigment_labels = None
 
-        self.analysis_dashboard.clear_all()
-        self.data_table.clear_data()
+        # self.data_table.clear_data()  # Data table removed
         self.protein_viewer.clear_structure()
         self.hamiltonian_widget.clear()
         self.spectrum_widget.clear()
         self.hamiltonian_widget.set_run_enabled(False)
         self.spectrum_widget.set_run_enabled(False)
+
+        # Clear exciton plots
+        self.exciton_distribution_plot.clear_plot()
+        self.combined_exciton_plot.clear_plot()
+
+        # Disable exciton distribution button
+        self.run_exciton_btn.setEnabled(False)
 
         self.status_message.emit("All data cleared")

@@ -519,6 +519,12 @@ class ToolsPanel(QWidget):
         )
         layout.addWidget(self.spectrum_item)
 
+        # Exciton Distribution
+        self.exciton_item = self.create_result_item(
+            "Exciton Distribution", "○ Pending", "exciton_distribution"
+        )
+        layout.addWidget(self.exciton_item)
+
         # View All button
         layout.addSpacing(10)
         self.view_all_btn = QPushButton("View All Results")
