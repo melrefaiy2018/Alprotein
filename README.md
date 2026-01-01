@@ -38,16 +38,35 @@ Unlike traditional command-line only tools, Alprotein features a **modern GUI wo
 - Generate absorption and fluorescence spectra with vibronic coupling
 - Define and analyze excitonic domains
 
+## What Makes Alprotein Different?
+
+Most computational tools for excitonic calculations require extensive programming knowledge and command-line expertise. **Alprotein breaks down this barrier** with a graphical interface that makes sophisticated quantum mechanical calculations accessible to all researchers—from experimental biophysicists to computational experts.
+
+**The GUI is not an afterthought**—it's a core feature designed from the ground up to handle the full complexity of excitonic calculations while remaining intuitive and user-friendly.
+
+At the same time, power users get a clean, well-documented Python API for automation, batch processing, and integration into existing pipelines. You're not limited to one approach—use what fits your workflow.
+
 ## Installation
 
 ### From source
 
 ```bash
 git clone https://github.com/melrefaiy2018/Alprotein.git
-conda create -n alprotein python=3.11 
 cd Alprotein
+conda create -n alprotein python=3.11
+conda activate alprotein
 pip install -e .
 ```
+
+### Launch the GUI
+
+After installation, start the interactive workbench:
+
+```bash
+python tools/launch_workbench.py 
+```
+
+That's it! The GUI will open and guide you through the entire workflow.
 
 ### Requirements
 
@@ -55,6 +74,7 @@ pip install -e .
 - NumPy, SciPy, pandas
 - BioPython
 - matplotlib
+- PyQt5 or PySide6 (for GUI)
 
 ## Getting Started
 
@@ -244,15 +264,14 @@ print(f"\n    ✓ Spectra saved to 'spectra.png'")
 print("\n✅ Calculation complete!")
 ```
 
-### Quick Start Guide
+### Quick Python Example
 
-For a minimal working example:
+For a minimal scripting example (when you need automation):
 
 ```python
-import numpy as np
 from Alprotein import ProteinStructure, PigmentSystem, ChlorophyllA
 
-# 1. Load structure and build pigment system
+# Load structure and build pigment system
 protein = ProteinStructure.from_file("structure.pdb", name="MyComplex")
 pigment_system = PigmentSystem(protein)
 pigment_system.add_pigments_by_residue(
@@ -262,20 +281,38 @@ pigment_system.add_pigments_by_residue(
     cdc_dict_name="CLA"
 )
 
-# 2. Compute energies and couplings
+# Compute energies and couplings
 site_energies = pigment_system.compute_site_energies()
 couplings = pigment_system.compute_couplings(method="TrEsp")
 
 print(f"Found {len(pigment_system.pigments)} pigments")
-print(f"Mean site energy: {np.mean(site_energies):.1f} cm⁻¹")
+print(f"Mean site energy: {site_energies.mean():.1f} cm⁻¹")
 ```
 
-## Project structure
+**💡 Tip:** The same workflow is available in the GUI with point-and-click simplicity—no need to remember function names or parameter details!
 
-- `Alprotein/core/` core system objects such as structure and pigment handling
-- `Alprotein/calculators/` site energy, coupling, and Hamiltonian calculators
-- `Alprotein/data/` parameter sets for supported pigment types
-- `examples/` runnable examples and workflows
+## GUI vs Scripting: Choose Your Workflow
+
+| Feature | GUI Workbench | Python API |
+|---------|---------------|------------|
+| **Learning Curve** | Immediate - visual interface | Requires Python knowledge |
+| **Best For** | Exploratory research, single calculations | Automation, batch jobs, pipelines |
+| **Parameter Selection** | Dropdowns with validation | Manual specification |
+| **Visualization** | Built-in interactive plots | Custom matplotlib code |
+| **Result Export** | One-click save | Manual file I/O |
+| **Reproducibility** | Session save/load | Script version control |
+| **Customization** | Guided options | Full programmatic control |
+
+**Use both!** Start with the GUI to explore and understand your system, then use the Python API when you need to automate or customize.
+
+## Project Structure
+
+- `Alprotein/core/` - Core system objects (structure and pigment handling)
+- `Alprotein/calculators/` - Site energy, coupling, and Hamiltonian calculators
+- `Alprotein/gui/` - Interactive GUI workbench components
+- `Alprotein/data/` - Parameter sets for supported pigment types
+- `examples/` - Runnable scripting examples and workflows
+- `tools/` - Utility scripts including GUI launcher
 
 
 ## License
@@ -288,11 +325,12 @@ If you use Alprotein in published work, please cite:
 
 ```bibtex
 @software{Alprotein,
-  title={Alprotein: A modular toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates},  author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
+  title={Alprotein: Interactive GUI and scripting toolkit for excitonic Hamiltonians and optical spectra of molecular aggregates},
   author={Mohamed Elrefaiy and Bailey Raber and Doran Raccah},
   year={2025},
   version={0.2.0},
-  url={https://github.com/melrefaiy2018/Alprotein}
+  url={https://github.com/melrefaiy2018/Alprotein},
+  note={Features interactive GUI workbench for accessible excitonic calculations}
 }
 ```
 
