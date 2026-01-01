@@ -1430,10 +1430,12 @@ class ScientificWorkbenchWindow(QWidget):
             )
 
     def update_exciton_plots(self, distributions, labels):
-        """Update exciton distribution plots in Data Analysis tab"""
+        """Update exciton distribution plots in Data Analysis tab with Gaussian curves"""
         try:
             import matplotlib.pyplot as plt
             import numpy as np
+            from scipy.interpolate import interp1d
+            from scipy.ndimage import gaussian_filter1d
 
             # Persist labels for later range adjustments
             self.exciton_labels = labels
@@ -1451,29 +1453,93 @@ class ScientificWorkbenchWindow(QWidget):
             fig1.clear()
             ax1 = fig1.add_subplot(111)
 
-            # Plot each pigment's distribution
+            # Store line objects for interactive legend
+            lines = []
+            line_labels = []
+
+            # Plot each pigment's distribution as smooth Gaussian curve
             colors = plt.cm.tab20(np.linspace(0, 1, len(labels)))
             for i, label in enumerate(labels[:10]):  # Limit to first 10 for clarity
                 energies, probs = distributions[label]
-                wavelengths = [1e7 / e if e > 0 else 0 for e in energies]
-                # Use histogram focused on the selected wavelength window
-                ax1.hist(
-                    wavelengths,
-                    bins=30,
-                    range=(x_min, x_max),
-                    weights=probs,
-                    alpha=0.5,
-                    label=label.split('_')[-1],
-                    color=colors[i]
-                )
+                energies = np.array(energies)
+                probs = np.array(probs)
+                
+                # Convert energies to wavelengths
+                wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
+                
+                # Remove any invalid values
+                valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
+                wavelengths = wavelengths[valid_mask]
+                probs = probs[valid_mask]
+                
+                if len(wavelengths) < 3:
+                    logger.warning(f"Not enough data points for {label}")
+                    continue
+                
+                # Create histogram bins for the wavelength range
+                bins = np.linspace(x_min, x_max, 200)
+                
+                # Create weighted histogram (probability density)
+                hist, bin_edges = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
+                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                
+                # Normalize histogram
+                if hist.sum() > 0:
+                    hist = hist / hist.sum()
+                
+                # Apply Gaussian smoothing for smooth curves
+                hist_smooth = gaussian_filter1d(hist, sigma=3)
+                
+                # Plot smooth curve
+                line, = ax1.plot(bin_centers, hist_smooth, linewidth=2.5, 
+                                label=label.split('_')[-1], color=colors[i], alpha=0.8)
+                lines.append(line)
+                line_labels.append(label.split('_')[-1])
+                
+                # Add peak label
+                if len(hist_smooth) > 0:
+                    peak_idx = np.argmax(hist_smooth)
+                    peak_wl = bin_centers[peak_idx]
+                    peak_prob = hist_smooth[peak_idx]
+                    ax1.annotate(label.split('_')[-1], 
+                               xy=(peak_wl, peak_prob),
+                               xytext=(0, 8), textcoords='offset points',
+                               ha='center', fontsize=9, fontweight='bold',
+                               color=colors[i])
 
-            ax1.set_xlabel('Wavelength (nm)', fontsize=10)
-            ax1.set_ylabel('Probability', fontsize=10)
-            ax1.set_title('Exciton Distribution', fontsize=11, fontweight='bold')
+            ax1.set_xlabel('Wavelength (nm)', fontsize=12, fontweight='bold')
+            ax1.set_ylabel('Density', fontsize=12, fontweight='bold')
+            ax1.set_title('Exciton Distribution', fontsize=13, fontweight='bold')
             ax1.set_xlim(x_min, x_max)
-            if len(labels) <= 10:
-                ax1.legend(fontsize=8, ncol=2)
-            fig1.tight_layout()
+            ax1.grid(True, alpha=0.3, linestyle='--')
+            
+            # Adjust subplot to leave room for legend below
+            fig1.subplots_adjust(bottom=0.25)
+            
+            # Create legend below the plot
+            if len(lines) > 0:
+                # Determine columns based on number of pigments
+                ncol = 2 if len(lines) <= 10 else (3 if len(lines) <= 20 else 4)
+                fontsize = 9 if len(lines) <= 10 else (8 if len(lines) <= 20 else 7)
+                
+                # Create legend using figure method (below the axis)
+                legend = fig1.legend(lines, line_labels, 
+                                    loc='lower center', ncol=ncol,
+                                    fontsize=fontsize, framealpha=0.95,
+                                    edgecolor='black', fancybox=True,
+                                    bbox_to_anchor=(0.5, 0.02))
+            
+            # Store lines for interactive toggling
+            self.exciton_distribution_plot.legend_lines = lines
+            self.exciton_distribution_plot.legend_labels = line_labels
+            
+            # Make lines interactive
+            for line in lines:
+                line.set_picker(5)
+            
+            # Connect click event to figure for legend interaction
+            fig1.canvas.mpl_connect('pick_event', 
+                lambda event: self.on_line_pick(event, fig1, lines, line_labels))
 
             # Redraw the canvas
             self.exciton_distribution_plot.canvas.draw()
@@ -1494,31 +1560,83 @@ class ScientificWorkbenchWindow(QWidget):
                                                         self.spectrum_data.get('wavelengths'))
                 absorption = self.spectrum_data.get('absorption',
                                                    self.spectrum_data.get('spectrum'))
-                ax2_top.plot(wavelengths_abs, absorption, 'g-', linewidth=2, alpha=0.7)
-                ax2_top.set_ylabel('Absorption', fontsize=9)
+                ax2_top.plot(wavelengths_abs, absorption, 'g-', linewidth=2.5, alpha=0.8)
+                ax2_top.set_ylabel('Absorption', fontsize=11, fontweight='bold')
                 ax2_top.set_xlim(x_min, x_max)
-                ax2_top.set_title('Absorption & Exciton', fontsize=11, fontweight='bold')
+                ax2_top.set_title('Absorption & Exciton', fontsize=13, fontweight='bold')
+                ax2_top.grid(True, alpha=0.3, linestyle='--')
 
-                # Bottom: Exciton distributions
+                # Store line objects for interactive legend
+                lines2 = []
+                line_labels2 = []
+
+                # Bottom: Exciton distributions as smooth Gaussian curves
                 for i, label in enumerate(labels[:5]):  # Show fewer for combined plot
                     energies, probs = distributions[label]
-                    wavelengths = [1e7 / e if e > 0 else 0 for e in energies]
-                    ax2_bottom.hist(
-                        wavelengths,
-                        bins=30,
-                        range=(x_min, x_max),
-                        weights=probs,
-                        alpha=0.5,
-                        label=label.split('_')[-1],
-                        color=colors[i]
-                    )
+                    energies = np.array(energies)
+                    probs = np.array(probs)
+                    
+                    # Convert energies to wavelengths
+                    wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
+                    
+                    # Remove invalid values
+                    valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
+                    wavelengths = wavelengths[valid_mask]
+                    probs = probs[valid_mask]
+                    
+                    if len(wavelengths) < 3:
+                        continue
+                    
+                    # Create histogram bins
+                    bins = np.linspace(x_min, x_max, 200)
+                    hist, bin_edges = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
+                    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                    
+                    # Normalize
+                    if hist.sum() > 0:
+                        hist = hist / hist.sum()
+                    
+                    # Gaussian smoothing
+                    hist_smooth = gaussian_filter1d(hist, sigma=3)
+                    
+                    # Plot smooth curve
+                    line, = ax2_bottom.plot(bin_centers, hist_smooth, linewidth=2.5,
+                                           label=label.split('_')[-1], 
+                                           color=colors[i], alpha=0.8)
+                    lines2.append(line)
+                    line_labels2.append(label.split('_')[-1])
 
-                ax2_bottom.set_xlabel('Wavelength (nm)', fontsize=9)
-                ax2_bottom.set_ylabel('Exciton Prob.', fontsize=9)
+                ax2_bottom.set_xlabel('Wavelength (nm)', fontsize=11, fontweight='bold')
+                ax2_bottom.set_ylabel('Exciton Prob.', fontsize=11, fontweight='bold')
                 ax2_bottom.set_xlim(x_min, x_max)
-                if len(labels) <= 5:
-                    ax2_bottom.legend(fontsize=7, ncol=2)
-                fig2.tight_layout()
+                ax2_bottom.grid(True, alpha=0.3, linestyle='--')
+                
+                # Adjust subplot to leave room for legend below
+                fig2.subplots_adjust(bottom=0.20)
+                
+                # Create shared legend below both plots
+                if len(lines2) > 0:
+                    ncol = 2 if len(lines2) <= 5 else (3 if len(lines2) <= 10 else 4)
+                    fontsize = 8 if len(lines2) <= 5 else (7 if len(lines2) <= 10 else 6)
+                    
+                    # Create legend using figure method
+                    legend2 = fig2.legend(lines2, line_labels2,
+                                        loc='lower center', ncol=ncol,
+                                        fontsize=fontsize, framealpha=0.95,
+                                        edgecolor='black', fancybox=True,
+                                        bbox_to_anchor=(0.5, 0.02))
+                
+                # Store lines for interactive toggling
+                self.combined_exciton_plot.legend_lines = lines2
+                self.combined_exciton_plot.legend_labels = line_labels2
+                
+                # Make lines interactive
+                for line in lines2:
+                    line.set_picker(5)
+                
+                # Connect click event
+                fig2.canvas.mpl_connect('pick_event',
+                    lambda event: self.on_line_pick(event, fig2, lines2, line_labels2))
 
                 self.combined_exciton_plot.canvas.draw()
                 self.combined_exciton_plot.canvas.flush_events()
@@ -1528,23 +1646,76 @@ class ScientificWorkbenchWindow(QWidget):
                 # If no spectrum, just show exciton distribution in a different way
                 ax2 = fig2.add_subplot(111)
 
-                # Show mean exciton energy for each pigment as a bar plot
-                mean_energies = []
-                pig_names = []
-                for label in labels[:15]:  # Show up to 15 pigments
-                    energies, probs = distributions[label]
-                    if energies and probs:
-                        mean_e = np.average(energies, weights=probs)
-                        mean_energies.append(1e7 / mean_e if mean_e > 0 else 0)
-                        pig_names.append(label.split('_')[-1])
+                # Store line objects for interactive legend
+                lines2 = []
+                line_labels2 = []
 
-                ax2.barh(range(len(mean_energies)), mean_energies, color='steelblue', alpha=0.7)
-                ax2.set_yticks(range(len(pig_names)))
-                ax2.set_yticklabels(pig_names, fontsize=8)
-                ax2.set_xlabel('Mean Wavelength (nm)', fontsize=10)
-                ax2.set_title('Mean Exciton Wavelengths', fontsize=11, fontweight='bold')
+                # Show distributions as smooth Gaussian curves
+                for i, label in enumerate(labels[:15]):  # Show up to 15 pigments
+                    energies, probs = distributions[label]
+                    energies = np.array(energies)
+                    probs = np.array(probs)
+                    
+                    # Convert energies to wavelengths
+                    wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
+                    
+                    # Remove invalid values
+                    valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
+                    wavelengths = wavelengths[valid_mask]
+                    probs = probs[valid_mask]
+                    
+                    if len(wavelengths) >= 3:
+                        # Create histogram bins
+                        bins = np.linspace(x_min, x_max, 200)
+                        hist, bin_edges = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
+                        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                        
+                        # Normalize
+                        if hist.sum() > 0:
+                            hist = hist / hist.sum()
+                        
+                        # Gaussian smoothing
+                        hist_smooth = gaussian_filter1d(hist, sigma=3)
+                        
+                        # Plot smooth curve
+                        line, = ax2.plot(bin_centers, hist_smooth, linewidth=2,
+                                       label=label.split('_')[-1], 
+                                       color=colors[i % len(colors)], alpha=0.7)
+                        lines2.append(line)
+                        line_labels2.append(label.split('_')[-1])
+
+                ax2.set_xlabel('Wavelength (nm)', fontsize=11, fontweight='bold')
+                ax2.set_ylabel('Density', fontsize=11, fontweight='bold')
+                ax2.set_title('Exciton Distributions', fontsize=13, fontweight='bold')
                 ax2.set_xlim(x_min, x_max)
-                fig2.tight_layout()
+                ax2.grid(True, alpha=0.3, linestyle='--')
+                
+                # Adjust subplot to leave room for legend below
+                fig2.subplots_adjust(bottom=0.25)
+                
+                # Create shared legend below the plot
+                if len(lines2) > 0:
+                    ncol = 3 if len(lines2) <= 15 else (4 if len(lines2) <= 20 else 5)
+                    fontsize = 7 if len(lines2) <= 15 else (6 if len(lines2) <= 20 else 5)
+                    
+                    # Create legend using figure method
+                    legend2 = fig2.legend(lines2, line_labels2,
+                                        loc='lower center', ncol=ncol,
+                                        fontsize=fontsize, framealpha=0.95,
+                                        edgecolor='black', fancybox=True,
+                                        bbox_to_anchor=(0.5, 0.02))
+                
+                # Store lines for interactive toggling
+                self.combined_exciton_plot.legend_lines = lines2
+                self.combined_exciton_plot.legend_labels = line_labels2
+                
+                # Make lines interactive
+                for line in lines2:
+                    line.set_picker(5)
+                
+                # Connect click event
+                fig2.canvas.mpl_connect('pick_event',
+                    lambda event: self.on_line_pick(event, fig2, lines2, line_labels2))
 
                 self.combined_exciton_plot.canvas.draw()
                 self.combined_exciton_plot.canvas.flush_events()
@@ -1552,13 +1723,88 @@ class ScientificWorkbenchWindow(QWidget):
                 logger.info("Second plot (without spectrum) drawn and flushed")
 
             logger.info("Exciton distribution plots updated successfully")
-            self.status_message.emit("Exciton distribution plots updated")
+            self.status_message.emit("Exciton distribution plots updated (click legend to toggle)")
 
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
             logger.error(f"Failed to update exciton plots: {e}\n{error_details}")
             self.status_message.emit(f"Error updating exciton plots: {str(e)}")
+
+    def on_line_pick(self, event, figure, lines, line_labels):
+        """Handle line click to toggle line visibility"""
+        try:
+            # Get the line that was clicked
+            if event.artist in lines:
+                line = event.artist
+                idx = lines.index(line)
+                
+                # Toggle visibility
+                visible = not line.get_visible()
+                line.set_visible(visible)
+                
+                # Change line appearance
+                if visible:
+                    line.set_alpha(0.8)
+                    line.set_linewidth(2.5)
+                else:
+                    line.set_alpha(0.2)
+                    line.set_linewidth(1.0)
+                
+                # Redraw
+                figure.canvas.draw()
+                figure.canvas.flush_events()
+                
+                label = line_labels[idx] if idx < len(line_labels) else "line"
+                status = "shown" if visible else "hidden"
+                self.status_message.emit(f"Peak {label} {status}")
+                    
+        except Exception as e:
+            logger.error(f"Error in line pick handler: {e}")
+
+    def on_legend_pick(self, event, plot_widget):
+        """Handle legend click to toggle line visibility (deprecated - using on_line_pick instead)"""
+        try:
+            # Get the legend line that was clicked
+            legline = event.artist
+            
+            # Find which line it corresponds to
+            if hasattr(plot_widget, 'legend') and hasattr(plot_widget, 'lines'):
+                legend = plot_widget.legend
+                legend_lines = legend.get_lines()
+                
+                # Find index of clicked legend line
+                try:
+                    idx = list(legend_lines).index(legline)
+                    origline = plot_widget.lines[idx]
+                    
+                    # Toggle visibility
+                    visible = not origline.get_visible()
+                    origline.set_visible(visible)
+                    
+                    # Change legend line appearance
+                    if visible:
+                        legline.set_alpha(1.0)
+                        legline.set_linewidth(2.0)
+                    else:
+                        legline.set_alpha(0.2)
+                        legline.set_linewidth(1.0)
+                    
+                    # Redraw
+                    plot_widget.canvas.draw()
+                    plot_widget.canvas.flush_events()
+                    
+                    label = plot_widget.line_labels[idx] if idx < len(plot_widget.line_labels) else "line"
+                    status = "shown" if visible else "hidden"
+                    self.status_message.emit(f"Peak {label} {status}")
+                    
+                except (ValueError, IndexError) as e:
+                    logger.warning(f"Could not find legend line: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error in legend pick handler: {e}")
+            import traceback
+            traceback.print_exc()
 
     def clear_all_data(self):
         """Clear all loaded data and results"""
