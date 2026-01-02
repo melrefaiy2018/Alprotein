@@ -1788,7 +1788,7 @@ class ScientificWorkbenchWindow(QWidget):
 
         # Clear exciton plots
         self.exciton_distribution_plot.clear_plot()
-        self.combined_exciton_plot.clear_plot()
+        self.combined_analysis_plot.clear_plot()
 
         # Disable exciton distribution button
         self.run_exciton_btn.setEnabled(False)
