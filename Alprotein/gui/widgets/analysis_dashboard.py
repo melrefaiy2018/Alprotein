@@ -85,9 +85,6 @@ class MiniPlotWidget(QFrame):
         if xlabel:
             ax.set_xlabel(xlabel)
         ax.set_ylabel('Count')
-        # Title removed from plot area as per requirements (use card title instead)
-        # if title:
-        #     ax.set_title(title)
 
         self.figure.tight_layout()
         self.canvas.draw()
@@ -99,10 +96,6 @@ class MiniPlotWidget(QFrame):
 
         # Plot heatmap
         im = ax.imshow(matrix, cmap='RdBu_r', aspect='auto', interpolation='nearest')
-
-        # Title removed from plot area
-        # if title:
-        #     ax.set_title(title)
 
         # Minimal labeling for space
         n = matrix.shape[0]
