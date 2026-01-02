@@ -180,7 +180,6 @@ def _save_cache_to_disk():
     except Exception as e:
         # Silently fail if we can't save - caching is optional
         logger.warning(f"Failed to save g(t) cache to disk: {e}")
-        pass
 
 
 def _ensure_precomputed_cache():
