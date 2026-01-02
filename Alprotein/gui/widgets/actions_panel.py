@@ -25,76 +25,23 @@ class ActionsPanel(QWidget):
         """Setup the UI components"""
         layout = QVBoxLayout(self)
         
-        # Set styling to ensure black text
-        self.setStyleSheet("""
-            QWidget {
-                color: black;
-            }
-            QLabel {
-                color: black !important;
-            }
-            QGroupBox {
-                color: black;
-                font-weight: bold;
-            }
-        """)
-
         # Actions group
         group_box = QGroupBox("🚀 Calculations")
+        group_box.setProperty("class", "card")
         group_layout = QVBoxLayout(group_box)
+        group_layout.setSpacing(12)
+        group_layout.setContentsMargins(16, 24, 16, 16)
 
         # Site Energy Calculation
         self.site_energy_button = QPushButton("Calculate Site Energies")
-        self.site_energy_button.setMinimumHeight(50)
-        self.site_energy_button.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                border: 1px solid #111111;
-                padding: 15px;
-                border-radius: 2px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-            QPushButton:pressed {
-                background-color: #000000;
-            }
-            QPushButton:disabled {
-                background-color: #f3f3f3;
-                color: #b0b0b0;
-                border: 1px solid #e1e1e1;
-            }
-        """)
+        self.site_energy_button.setMinimumHeight(40)
+        self.site_energy_button.setProperty("class", "primary")
         group_layout.addWidget(self.site_energy_button)
 
         # CDC Analysis
         self.cdc_analysis_button = QPushButton("Run CDC Analysis")
-        self.cdc_analysis_button.setMinimumHeight(50)
-        self.cdc_analysis_button.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #111111;
-                border: 1px solid #111111;
-                padding: 15px;
-                border-radius: 2px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #efefef;
-            }
-            QPushButton:pressed {
-                background-color: #e6e6e6;
-            }
-            QPushButton:disabled {
-                background-color: #f3f3f3;
-                color: #b0b0b0;
-                border: 1px solid #e1e1e1;
-            }
-        """)
+        self.cdc_analysis_button.setMinimumHeight(40)
+        self.cdc_analysis_button.setProperty("class", "secondary")
         group_layout.addWidget(self.cdc_analysis_button)
 
         # Info/Status area

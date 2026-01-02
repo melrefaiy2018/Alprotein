@@ -39,6 +39,8 @@ class CustomToolbar(NavigationToolbar):
         super().__init__(canvas, parent)
         # Set icon size to be clearer and more visible
         self.setIconSize(QSize(32, 32))
+        # Set background to white
+        self.setStyleSheet("background-color: #ffffff; border: none;")
 
 
 class SingleSpectrumPanel(QWidget):
@@ -90,11 +92,12 @@ class SingleSpectrumPanel(QWidget):
         # Header with title and peak info
         header_layout = QHBoxLayout()
         title = QLabel(f"{self.spectrum_type.upper()} SPECTRUM")
-        title.setStyleSheet("color: #111111; font-size: 13px; font-weight: bold;")
+        title.setProperty("class", "card-title")
         header_layout.addWidget(title)
 
         self.peak_info_label = QLabel("")
-        self.peak_info_label.setStyleSheet("color: #1f7a44; font-weight: bold; font-size: 11px;")
+        self.peak_info_label.setProperty("class", "label")
+        self.peak_info_label.setStyleSheet("color: #1f7a44; font-weight: bold;")
         header_layout.addWidget(self.peak_info_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
@@ -102,64 +105,31 @@ class SingleSpectrumPanel(QWidget):
         # Experimental data file loader - compact version
         exp_layout = QHBoxLayout()
         exp_label = QLabel("Exp Data:")
-        exp_label.setStyleSheet("font-weight: bold; color: #111111; background-color: transparent; font-size: 11px;")
+        exp_label.setProperty("class", "label")
         exp_layout.addWidget(exp_label)
 
         self.exp_file_label = QLineEdit()
         self.exp_file_label.setReadOnly(True)
         self.exp_file_label.setPlaceholderText("No experimental data loaded")
         self.exp_file_label.setMaximumHeight(24)
-        self.exp_file_label.setStyleSheet(
-            "color: #6b6b6b; background-color: #ffffff; font-style: italic; font-size: 10px; "
-            "border: 1px solid #e1e1e1; border-radius: 2px; padding: 2px 6px;"
-        )
         exp_layout.addWidget(self.exp_file_label)
 
         self.browse_exp_btn = QPushButton("📁 Browse")
         self.browse_exp_btn.clicked.connect(self.browse_experimental_data)
         self.browse_exp_btn.setMaximumHeight(24)
-        self.browse_exp_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                padding: 3px 8px;
-                border-radius: 2px;
-                border: 1px solid #111111;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-        """)
+        self.browse_exp_btn.setProperty("class", "action-small")
         exp_layout.addWidget(self.browse_exp_btn)
 
         self.clear_exp_btn = QPushButton("Clear")
         self.clear_exp_btn.clicked.connect(self.clear_experimental_data)
         self.clear_exp_btn.setEnabled(False)
         self.clear_exp_btn.setMaximumHeight(24)
-        self.clear_exp_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f3f3f3;
-                color: #111111;
-                padding: 3px 8px;
-                border-radius: 2px;
-                border: 1px solid #e1e1e1;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #ededed;
-            }
-            QPushButton:disabled {
-                background-color: #f6f6f6;
-                color: #b0b0b0;
-                border: 1px solid #e9e9e9;
-            }
-        """)
+        self.clear_exp_btn.setProperty("class", "action-small")
         exp_layout.addWidget(self.clear_exp_btn)
         layout.addLayout(exp_layout)
 
         # Matplotlib figure with optimized size
-        self.figure = Figure(figsize=(8, 5), facecolor='white', dpi=100)
+        self.figure = Figure(figsize=(8, 5), dpi=100)
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.canvas.setMinimumHeight(350)
@@ -167,48 +137,6 @@ class SingleSpectrumPanel(QWidget):
         # Toolbar with all editing capabilities - modern professional styling
         self.toolbar = CustomToolbar(self.canvas, self)
         self.toolbar.setMaximumHeight(52)
-        self.toolbar.setStyleSheet("""
-            QToolBar {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ffffff, stop:1 #f8f9fa);
-                border: none;
-                border-bottom: 1px solid #e1e4e8;
-                padding: 6px 10px;
-                spacing: 6px;
-            }
-            QToolButton {
-                background-color: transparent;
-                border: 1px solid transparent;
-                border-radius: 5px;
-                padding: 8px;
-                margin: 2px;
-                color: #24292e;
-                min-width: 36px;
-                min-height: 36px;
-            }
-            QToolButton:hover {
-                background-color: #e1e4e8;
-                border: 1px solid #d1d5da;
-            }
-            QToolButton:pressed {
-                background-color: #d1d5da;
-                border: 1px solid #c1c5ca;
-            }
-            QToolButton:checked {
-                background-color: #0366d6;
-                border: 1px solid #0366d6;
-                color: white;
-            }
-            QToolButton:disabled {
-                color: #959da5;
-                background-color: transparent;
-            }
-            QLabel {
-                color: #586069;
-                padding: 0px 8px;
-                font-size: 11px;
-            }
-        """)
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas, stretch=1)
 
@@ -218,34 +146,12 @@ class SingleSpectrumPanel(QWidget):
 
         self.export_csv_btn = QPushButton("📊 Export CSV")
         self.export_csv_btn.clicked.connect(self.export_csv)
-        self.export_csv_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                padding: 6px 12px;
-                border-radius: 2px;
-                border: 1px solid #111111;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-        """)
+        self.export_csv_btn.setProperty("class", "primary")
         btn_layout.addWidget(self.export_csv_btn)
 
         self.export_plot_btn = QPushButton("📈 Export Plot")
         self.export_plot_btn.clicked.connect(self.export_plot)
-        self.export_plot_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #111111;
-                padding: 6px 12px;
-                border-radius: 2px;
-                border: 1px solid #111111;
-            }
-            QPushButton:hover {
-                background-color: #efefef;
-            }
-        """)
+        self.export_plot_btn.setProperty("class", "secondary")
         btn_layout.addWidget(self.export_plot_btn)
 
         layout.addLayout(btn_layout)
@@ -260,38 +166,14 @@ class SingleSpectrumPanel(QWidget):
         """Create integrated settings panel for plot customization"""
         panel = QFrame()
         panel.setMaximumWidth(280)
-        panel.setStyleSheet("""
-            QFrame {
-                background-color: #f8f9fa;
-                border-left: 1px solid #e1e4e8;
-            }
-        """)
+        panel.setProperty("class", "card")
         
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("""
-            QScrollArea { 
-                border: none; 
-                background-color: #f8f9fa; 
-            }
-            QScrollBar:vertical {
-                background-color: #f8f9fa;
-                width: 10px;
-                border-radius: 5px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #d1d5da;
-                border-radius: 5px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #959da5;
-            }
-        """)
+        scroll.setFrameShape(QFrame.NoFrame)
         
         content = QWidget()
-        content.setStyleSheet("background-color: #f8f9fa;")
         panel_layout = QVBoxLayout(content)
         panel_layout.setContentsMargins(12, 12, 12, 12)
         panel_layout.setSpacing(12)
@@ -338,27 +220,23 @@ class SingleSpectrumPanel(QWidget):
         
         # Appearance section
         appearance_group = QGroupBox("Appearance")
-        appearance_group.setStyleSheet(self.get_group_style() + """
-            QCheckBox {
-                font-size: 11px;
-                color: #111111;
-                background-color: transparent;
-                padding: 4px;
+        appearance_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: 600;
+                border: 1px solid #e1e1e1;
+                border-radius: 4px;
+                margin-top: 12px;
+                padding-top: 16px;
             }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-                border: 1px solid #e1e4e8;
-                border-radius: 2px;
-                background-color: #ffffff;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #0366d6;
-                border: 1px solid #0366d6;
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 4px;
             }
         """)
         appearance_layout = QVBoxLayout(appearance_group)
         appearance_layout.setSpacing(8)
+        appearance_layout.setContentsMargins(12, 12, 12, 12)
         
         self.fill_checkbox = QCheckBox("Show fill under curve")
         self.fill_checkbox.setChecked(self.show_fill)
@@ -375,23 +253,7 @@ class SingleSpectrumPanel(QWidget):
         # Apply button
         apply_btn = QPushButton("🔄 Apply Changes")
         apply_btn.clicked.connect(self.on_plot_settings_changed)
-        apply_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                padding: 8px 16px;
-                border-radius: 2px;
-                border: 1px solid #111111;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-            QPushButton:pressed {
-                background-color: #000000;
-            }
-        """)
+        apply_btn.setProperty("class", "primary")
         panel_layout.addWidget(apply_btn)
         
         panel_layout.addStretch()
@@ -445,23 +307,33 @@ class SingleSpectrumPanel(QWidget):
     def create_setting_group(self, title, widgets):
         """Create a settings group box"""
         group = QGroupBox(title)
-        group.setStyleSheet(self.get_group_style())
+        # Use a lighter style for nested groups
+        group.setStyleSheet("""
+            QGroupBox {
+                font-weight: 600;
+                border: 1px solid #e1e1e1;
+                border-radius: 4px;
+                margin-top: 12px;
+                padding-top: 16px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 4px;
+            }
+        """)
         layout = QVBoxLayout(group)
         layout.setSpacing(8)
+        layout.setContentsMargins(12, 12, 12, 12)
         
         for label_text, widget, attr_name in widgets:
             row = QHBoxLayout()
             label = QLabel(label_text)
-            label.setStyleSheet("""
-                color: #111111; 
-                font-size: 11px;
-                font-weight: normal;
-                background-color: transparent;
-            """)
-            label.setMinimumWidth(70)
+            label.setProperty("class", "label")
+            label.setMinimumWidth(90)  # Increased width
             row.addWidget(label)
             
-            widget.setStyleSheet(self.get_input_style())
+            # widget.setProperty("class", "input") # Inputs are styled globally by type
             setattr(self, attr_name, widget)
             row.addWidget(widget, 1)
             layout.addLayout(row)
@@ -934,38 +806,7 @@ class SpectrumPlotWidget(QWidget):
 
         # Create tab widget for absorption and fluorescence
         self.tab_widget = QTabWidget()
-        self.tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                background-color: #ffffff;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-            }
-            QTabBar {
-                qproperty-expanding: 0;
-            }
-            QTabBar::tab {
-                color: #111111;
-                background-color: #f3f3f3;
-                padding: 6px 20px;
-                min-width: 90px;
-                margin: 2px;
-                border: 1px solid #e1e1e1;
-                border-bottom: none;
-                border-top-left-radius: 2px;
-                border-top-right-radius: 2px;
-                font-size: 12px;
-            }
-            QTabBar::tab:selected {
-                background-color: #ffffff;
-                color: #111111;
-                font-weight: bold;
-                border-bottom: 2px solid #111111;
-            }
-            QTabBar::tab:hover {
-                background-color: #ededed;
-                color: #111111;
-            }
-        """)
+        # Stylesheet removed to use global styles
 
         # Create panels for absorption and fluorescence
         self.absorption_panel = SingleSpectrumPanel("Absorption")

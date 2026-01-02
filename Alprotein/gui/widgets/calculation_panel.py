@@ -25,36 +25,7 @@ class CalculationPanel(QWidget):
     def setup_ui(self):
         """Setup the UI components"""
         layout = QVBoxLayout(self)
-        
-        # Set panel styling to ensure black text
-        self.setStyleSheet("""
-            QWidget {
-                color: black;
-            }
-            QLabel {
-                color: black !important;
-            }
-            QGroupBox {
-                color: black;
-                font-weight: bold;
-            }
-            QComboBox {
-                color: black;
-                background-color: #ffffff;
-                border: 1px solid #e1e1e1;
-            }
-            QSpinBox, QDoubleSpinBox {
-                color: black;
-                background-color: #ffffff;
-                border: 1px solid #e1e1e1;
-            }
-            QCheckBox {
-                color: black;
-            }
-            QFormLayout QLabel {
-                color: black !important;
-            }
-        """)
+        layout.setSpacing(16)
         
         # System Status Group
         # self.create_system_status_group(layout)
@@ -70,21 +41,23 @@ class CalculationPanel(QWidget):
     def create_system_status_group(self, parent_layout):
         """Create system status display group"""
         group_box = QGroupBox("🔍 System Status")
+        group_box.setProperty("class", "card")
         layout = QVBoxLayout(group_box)
+        layout.setContentsMargins(16, 24, 16, 16)
         
         # Status text area
         self.status_text = QTextEdit()
         self.status_text.setMaximumHeight(120)
         self.status_text.setReadOnly(True)
+        # Use global style for QTextEdit if available, or keep minimal styling
         self.status_text.setStyleSheet("""
             QTextEdit {
-                color: black;
-                background-color: #f3f3f3;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
+                background-color: #f9fafb;
+                border: 1px solid #e5e7eb;
+                border-radius: 6px;
                 padding: 8px;
                 font-family: "Courier New", monospace;
-                font-size: 11px;
+                font-size: 12px;
             }
         """)
         self.status_text.setText("No structure loaded")
@@ -95,7 +68,10 @@ class CalculationPanel(QWidget):
     def create_calculation_settings_group(self, parent_layout):
         """Create calculation settings group"""
         group_box = QGroupBox("⚙️ Calculation Settings")
+        group_box.setProperty("class", "card")
         layout = QFormLayout(group_box)
+        layout.setContentsMargins(16, 24, 16, 16)
+        layout.setSpacing(12)
         
         # Dielectric constant
         self.dielectric_spinbox = QDoubleSpinBox()
@@ -159,7 +135,10 @@ class CalculationPanel(QWidget):
         
         # Advanced label
         advanced_label = QLabel("Advanced Options:")
-        advanced_label.setStyleSheet("font-weight: bold; color: black !important;")
+        advanced_label.setProperty("class", "text-primary")
+        font = advanced_label.font()
+        font.setBold(True)
+        advanced_label.setFont(font)
         parent_layout.addRow(advanced_label)
         
         # Include water molecules

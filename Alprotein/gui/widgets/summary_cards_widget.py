@@ -22,26 +22,11 @@ class SummaryCard(QGroupBox):
 
     def setup_ui(self):
         """Setup card UI"""
-        self.setStyleSheet(f"""
-            QGroupBox {{
-                font-weight: bold;
-                border: 1px solid {self.color};
-                border-radius: 2px;
-                margin-top: 12px;
-                padding-top: 15px;
-                background-color: #ffffff;
-                color: #111111;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 8px;
-                font-size: 13px;
-            }}
-        """)
-
+        self.setProperty("class", "card")
+        
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
+        layout.setContentsMargins(16, 24, 16, 16)
 
         self.content_labels = []
 
@@ -50,11 +35,11 @@ class SummaryCard(QGroupBox):
         stat_layout = QHBoxLayout()
 
         name_label = QLabel(f"{name}:")
-        name_label.setStyleSheet("color: #6b6b6b; font-weight: normal;")
+        name_label.setProperty("class", "text-secondary")
         stat_layout.addWidget(name_label)
 
         value_label = QLabel(str(value))
-        value_label.setStyleSheet(f"color: {self.color}; font-weight: bold; font-size: 14px;")
+        value_label.setStyleSheet(f"color: {self.color}; font-weight: 600; font-size: 14px;")
         stat_layout.addWidget(value_label)
 
         stat_layout.addStretch()

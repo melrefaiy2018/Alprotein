@@ -6,6 +6,11 @@ from .calculations import *
 from .pdb_writer import ExtendedPDBWriter
 from .cdc_analysis import CDCAnalyzer, CDCVisualizer, CDCExporter, analyze_site_energy_contributions
 from .atom_level_cdc import analyze_site_energy_contributions_with_atoms, display_atom_breakdown
+from .calculate_exciton_distribution import (
+    calculate_exciton_distribution,
+    plot_exciton_distribution,
+    plot_combined_absorption_and_exciton
+)
 
 __all__ = [
     # From calculations
@@ -20,5 +25,7 @@ __all__ = [
     # From cdc_analysis
     'CDCAnalyzer', 'CDCVisualizer', 'CDCExporter', 'analyze_site_energy_contributions',
     # From atom_level_cdc
-    'analyze_site_energy_contributions_with_atoms', 'display_atom_breakdown'
+    'analyze_site_energy_contributions_with_atoms', 'display_atom_breakdown',
+    # From calculate_exciton_distribution
+    'calculate_exciton_distribution', 'plot_exciton_distribution', 'plot_combined_absorption_and_exciton'
 ]

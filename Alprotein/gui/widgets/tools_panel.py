@@ -98,6 +98,8 @@ class ToolsPanel(QWidget):
 
     def setup_ui(self):
         """Setup the UI"""
+        self.setProperty("class", "sidebar")
+        
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(16, 16, 16, 16)
         main_layout.setSpacing(16)
@@ -125,116 +127,10 @@ class ToolsPanel(QWidget):
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
 
-        # Apply styling with improved QGroupBox title visibility
-        self.setStyleSheet("""
-            ToolsPanel {
-                background-color: #f5f5f5;
-            }
-            QScrollArea {
-                background-color: #f5f5f5;
-                border: none;
-            }
-            QScrollArea > QWidget > QWidget {
-                background-color: #f5f5f5;
-            }
-            QGroupBox {
-                font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #e1e1e1;
-                border-radius: 4px;
-                margin-top: 16px;
-                padding: 12px;
-                padding-top: 24px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 12px;
-                top: 4px;
-                padding: 2px 8px;
-                background-color: #ffffff;
-                color: #111111;
-                font-size: 12px;
-                font-weight: bold;
-            }
-            QLabel {
-                color: #111111;
-                background-color: transparent;
-            }
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                border: 1px solid #111111;
-                padding: 8px 12px;
-                border-radius: 2px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-            QPushButton:pressed {
-                background-color: #000000;
-            }
-            QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox {
-                padding: 6px;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QSpinBox:focus {
-                border: 2px solid #111111;
-            }
-            QCheckBox {
-                color: #111111;
-                background-color: transparent;
-            }
-            QRadioButton {
-                color: #111111;
-                background-color: transparent;
-            }
-            QProgressBar {
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                text-align: center;
-                background-color: #f3f3f3;
-                color: #111111;
-            }
-            QProgressBar::chunk {
-                background-color: #111111;
-                border-radius: 2px;
-            }
-        """)
-
     def create_project_section(self):
         """Create project information section"""
         group = QGroupBox("📁 PROJECT")
-        group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                margin-top: 16px;
-                padding: 12px;
-                padding-top: 24px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 12px;
-                top: 4px;
-                padding: 2px 8px;
-                background-color: #ffffff;
-                color: #111111;
-                font-size: 12px;
-                font-weight: bold;
-            }
-        """)
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
 
@@ -266,15 +162,15 @@ class ToolsPanel(QWidget):
         stats_layout.setSpacing(5)
 
         self.pigments_label = QLabel("Pigments: -")
-        self.pigments_label.setStyleSheet("color: #6b6b6b;")
+        self.pigments_label.setProperty("class", "label")
         stats_layout.addWidget(self.pigments_label)
 
         self.atoms_label = QLabel("Atoms: -")
-        self.atoms_label.setStyleSheet("color: #6b6b6b;")
+        self.atoms_label.setProperty("class", "label")
         stats_layout.addWidget(self.atoms_label)
 
         self.validation_label = QLabel("Status: Not validated")
-        self.validation_label.setStyleSheet("color: #6b6b6b;")
+        self.validation_label.setProperty("class", "label")
         stats_layout.addWidget(self.validation_label)
 
         layout.addLayout(stats_layout)
@@ -284,11 +180,13 @@ class ToolsPanel(QWidget):
 
         self.open_btn = QPushButton("Open")
         self.open_btn.clicked.connect(self.open_project.emit)
+        self.open_btn.setProperty("class", "primary")
         btn_layout.addWidget(self.open_btn)
 
         self.props_btn = QPushButton("Properties")
         self.props_btn.clicked.connect(self.show_properties.emit)
         self.props_btn.setEnabled(False)
+        self.props_btn.setProperty("class", "secondary")
         btn_layout.addWidget(self.props_btn)
 
         layout.addLayout(btn_layout)
@@ -298,36 +196,13 @@ class ToolsPanel(QWidget):
     def create_settings_section(self):
         """Create calculation settings section"""
         group = QGroupBox("⚙ SETTINGS")
-        group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                margin-top: 16px;
-                padding: 12px;
-                padding-top: 24px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 12px;
-                top: 4px;
-                padding: 2px 8px;
-                background-color: #ffffff;
-                color: #111111;
-                font-size: 12px;
-                font-weight: bold;
-            }
-        """)
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(12)
 
         # Calculation header
         calc_header = QLabel("Calculation")
-        calc_header.setStyleSheet("font-weight: bold; color: #111111; font-size: 12px;")
+        calc_header.setProperty("class", "card-title")
         layout.addWidget(calc_header)
 
         # Dielectric CDC
@@ -374,7 +249,7 @@ class ToolsPanel(QWidget):
 
         # Reference Energies header
         ref_header = QLabel("Reference Energies (cm⁻¹)")
-        ref_header.setStyleSheet("font-weight: bold; color: #111111; font-size: 12px;")
+        ref_header.setProperty("class", "card-title")
         layout.addWidget(ref_header)
 
         # Eg,a (CLA)
@@ -409,30 +284,7 @@ class ToolsPanel(QWidget):
     def create_progress_section(self):
         """Create progress tracking section"""
         group = QGroupBox("⏱ PROGRESS")
-        group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                margin-top: 16px;
-                padding: 12px;
-                padding-top: 24px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 12px;
-                top: 4px;
-                padding: 2px 8px;
-                background-color: #ffffff;
-                color: #111111;
-                font-size: 12px;
-                font-weight: bold;
-            }
-        """)
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(8)
 
@@ -458,12 +310,12 @@ class ToolsPanel(QWidget):
 
         # Status label
         self.progress_status = QLabel("Ready")
-        self.progress_status.setStyleSheet("color: #6b6b6b; font-size: 11px;")
+        self.progress_status.setProperty("class", "label")
         layout.addWidget(self.progress_status)
 
         # Timing label
         self.progress_timing = QLabel("Elapsed: 0.0s")
-        self.progress_timing.setStyleSheet("color: #6b6b6b; font-size: 10px;")
+        self.progress_timing.setProperty("class", "label")
         layout.addWidget(self.progress_timing)
 
         return group
@@ -471,30 +323,7 @@ class ToolsPanel(QWidget):
     def create_results_section(self):
         """Create results tracking section"""
         group = QGroupBox("📊 RESULTS")
-        group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                margin-top: 16px;
-                padding: 12px;
-                padding-top: 24px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 12px;
-                top: 4px;
-                padding: 2px 8px;
-                background-color: #ffffff;
-                color: #111111;
-                font-size: 12px;
-                font-weight: bold;
-            }
-        """)
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
 
@@ -518,6 +347,12 @@ class ToolsPanel(QWidget):
             "Spectrum", "○ Pending", "spectrum"
         )
         layout.addWidget(self.spectrum_item)
+
+        # Exciton Distribution
+        self.exciton_item = self.create_result_item(
+            "Exciton Distribution", "○ Pending", "exciton_distribution"
+        )
+        layout.addWidget(self.exciton_item)
 
         # View All button
         layout.addSpacing(10)

@@ -41,18 +41,7 @@ class ParametersPanel(QWidget):
         # Header
         header = QLabel("CALCULATION PARAMETERS")
         header.setAlignment(Qt.AlignCenter)
-        header.setStyleSheet("""
-            QLabel {
-                background-color: #f3f3f3;
-                color: #111111;
-                padding: 10px;
-                font-size: 13px;
-                font-weight: bold;
-                letter-spacing: 1px;
-                border-radius: 2px;
-                border: 1px solid #e1e1e1;
-            }
-        """)
+        header.setProperty("class", "h2")
         main_layout.addWidget(header)
 
         # Create horizontal layout for method and physical parameters
@@ -72,53 +61,22 @@ class ParametersPanel(QWidget):
         pigment_group = self.create_pigment_group()
         main_layout.addWidget(pigment_group, stretch=1)
 
-        # Apply overall styling
-        self.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                margin-top: 12px;
-                padding-top: 10px;
-                background-color: #ffffff;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-                color: #111111;
-            }
-            QLabel {
-                color: #111111;
-            }
-            QDoubleSpinBox, QSpinBox, QComboBox {
-                padding: 4px;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus {
-                border: 2px solid #111111;
-            }
-        """)
-
     def create_method_group(self):
         """Create method selection group"""
         group = QGroupBox("Method Selection")
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(8)
+        layout.setContentsMargins(16, 24, 16, 16)
 
         # TrEsp method
         self.tresp_radio = QRadioButton("TrEsp (Transition Charge)")
         self.tresp_radio.setChecked(True)
-        self.tresp_radio.setStyleSheet("color: black;")
         self.tresp_radio.toggled.connect(self.on_parameters_changed)
         layout.addWidget(self.tresp_radio)
 
         # Dipole-Dipole method
         self.dipole_radio = QRadioButton("Dipole-Dipole")
-        self.dipole_radio.setStyleSheet("color: black;")
         self.dipole_radio.toggled.connect(self.on_parameters_changed)
         layout.addWidget(self.dipole_radio)
 
@@ -129,8 +87,10 @@ class ParametersPanel(QWidget):
     def create_physics_group(self):
         """Create physical parameters group"""
         group = QGroupBox("Physical Parameters")
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+        layout.setContentsMargins(16, 24, 16, 16)
 
         # Dielectric constant (CDC)
         cdc_layout = QHBoxLayout()
@@ -186,8 +146,10 @@ class ParametersPanel(QWidget):
     def create_pigment_group(self):
         """Create pigment configuration group"""
         group = QGroupBox("Pigment Configuration")
+        group.setProperty("class", "card")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+        layout.setContentsMargins(16, 24, 16, 16)
 
         # Pigment table
         self.pigment_table = QTableWidget()

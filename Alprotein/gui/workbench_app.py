@@ -18,7 +18,8 @@ from PyQt5.QtGui import QKeySequence, QIcon, QFont
 from pathlib import Path
 
 from Alprotein.gui.workbench_window import ScientificWorkbenchWindow
-
+from Alprotein.gui.styles import GLOBAL_STYLESHEET, CHART_STYLE
+import matplotlib.pyplot as plt
 
 class ScientificWorkbenchApp(QMainWindow):
     """
@@ -300,12 +301,9 @@ class ScientificWorkbenchApp(QMainWindow):
 
     def apply_styling(self):
         """Apply global application styling"""
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                                  stop:0 #fafafa, stop:1 #f2f2f2);
-            }
-        """)
+        # Apply chart styling
+        for key, value in CHART_STYLE.items():
+            plt.rcParams[key] = value
 
     def update_status(self, message: str):
         """Update status bar message"""
@@ -507,72 +505,8 @@ def main():
     font = QFont("Segoe UI", 10)
     app.setFont(font)
 
-    # Apply global stylesheet to fix matplotlib Figure options dialog visibility
-    # This ensures text is visible on light backgrounds in all Qt dialogs
-    app.setStyleSheet("""
-        QDialog {
-            background-color: #ffffff;
-            color: #111111;
-        }
-        QDialog QLabel {
-            color: #111111;
-            background-color: transparent;
-        }
-        QDialog QLineEdit {
-            color: #111111;
-            background-color: #ffffff;
-            border: 1px solid #cccccc;
-            padding: 4px;
-        }
-        QDialog QComboBox {
-            color: #111111;
-            background-color: #ffffff;
-            border: 1px solid #cccccc;
-            padding: 4px;
-        }
-        QDialog QSpinBox, QDialog QDoubleSpinBox {
-            color: #111111;
-            background-color: #ffffff;
-            border: 1px solid #cccccc;
-            padding: 4px;
-        }
-        QDialog QPushButton {
-            color: #111111;
-            background-color: #f0f0f0;
-            border: 1px solid #cccccc;
-            padding: 6px 12px;
-            border-radius: 4px;
-        }
-        QDialog QPushButton:hover {
-            background-color: #e0e0e0;
-        }
-        QDialog QTabWidget::pane {
-            background-color: #ffffff;
-            border: 1px solid #cccccc;
-        }
-        QDialog QTabBar::tab {
-            color: #111111;
-            background-color: #f0f0f0;
-            padding: 8px 16px;
-            border: 1px solid #cccccc;
-        }
-        QDialog QTabBar::tab:selected {
-            background-color: #ffffff;
-            border-bottom-color: #ffffff;
-        }
-        QDialog QCheckBox {
-            color: #111111;
-        }
-        QDialog QGroupBox {
-            color: #111111;
-            border: 1px solid #cccccc;
-            margin-top: 8px;
-            padding-top: 8px;
-        }
-        QDialog QGroupBox::title {
-            color: #111111;
-        }
-    """)
+    # Apply global stylesheet
+    app.setStyleSheet(GLOBAL_STYLESHEET)
 
     # Create and show main window
     window = ScientificWorkbenchApp()
