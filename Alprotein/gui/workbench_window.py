@@ -1518,13 +1518,26 @@ class ScientificWorkbenchWindow(QWidget):
             fig1.clear()
             ax1 = fig1.add_subplot(111)
 
+            # Plot 2: Combined Analysis (Right Card)
+            fig2 = self.combined_analysis_plot.figure
+            fig2.clear()
+            
+            # Create subplots sharing x-axis
+            gs = fig2.add_gridspec(2, 1, height_ratios=[1, 1.2], hspace=0.05)
+            ax_top = fig2.add_subplot(gs[0])
+            ax_bottom = fig2.add_subplot(gs[1], sharex=ax_top)
+
             # Store line objects for interactive legend
-            lines = []
+            lines_left = []
+            lines_right = []
             line_labels = []
 
-            # Plot each pigment's distribution as smooth Gaussian curve
+            # Common settings
+            num_pigments_to_show = 10
             colors = plt.cm.tab20(np.linspace(0, 1, len(labels)))
-            for i, label in enumerate(labels[:10]):  # Limit to first 10 for clarity
+
+            # Plot each pigment's distribution as smooth Gaussian curve
+            for i, label in enumerate(labels[:num_pigments_to_show]):
                 energies, probs = distributions[label]
                 energies = np.array(energies)
                 probs = np.array(probs)
@@ -1538,6 +1551,11 @@ class ScientificWorkbenchWindow(QWidget):
                 probs = probs[valid_mask]
                 
                 if len(wavelengths) < 3:
+                    # Add dummy lines to keep indices aligned if we skip
+                    # But better to just continue and handle alignment carefully
+                    # For simplicity in this fix, we'll just skip and not add to lists
+                    # which might cause index mismatch if we relied on 'i'. 
+                    # But we append to lists, so list indices will match.
                     continue
                 
                 # Create histogram bins for the wavelength range
@@ -1554,195 +1572,141 @@ class ScientificWorkbenchWindow(QWidget):
                 # Apply Gaussian smoothing for smooth curves
                 hist_smooth = gaussian_filter1d(hist, sigma=3)
                 
-                # Plot smooth curve
-                line, = ax1.plot(bin_centers, hist_smooth, linewidth=2.5, 
+                # Plot on Left (ax1)
+                line1, = ax1.plot(bin_centers, hist_smooth, linewidth=2.5, 
                                 label=label.split('_')[-1], color=colors[i], alpha=0.8)
-                lines.append(line)
-                line_labels.append(label.split('_')[-1])
+                lines_left.append(line1)
                 
-                # Peak labels removed for clarity as requested
+                # Plot on Right Bottom (ax_bottom)
+                line2, = ax_bottom.plot(bin_centers, hist_smooth, linewidth=2.0, 
+                                     label=label.split('_')[-1], color=colors[i], alpha=0.9)
+                lines_right.append(line2)
+                
+                line_labels.append(label.split('_')[-1])
 
+            # Styling for Left Plot
             ax1.set_xlabel('Wavelength (nm)', fontsize=10, fontweight='bold')
             ax1.set_ylabel('Density', fontsize=10, fontweight='bold')
             ax1.tick_params(axis='both', which='major', labelsize=9)
             ax1.set_xlim(x_min, x_max)
             ax1.grid(True, alpha=0.3, linestyle='--')
-            
-            # Adjust subplot to use full space (legend is now external)
-            # Increased left margin to ensure y-axis labels are fully visible
             fig1.subplots_adjust(bottom=0.15, top=0.95, left=0.15, right=0.98)
             
-            # Populate the side pigment list
-            # Clear existing items
-            while self.pigment_list_layout.count() > 1: # Keep the stretch at the end
-                item = self.pigment_list_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-            
-            # Add new items
-            for i, (line, label) in enumerate(zip(lines, line_labels)):
-                # Get color from line
-                color_rgba = line.get_color()
-                # Convert to hex for stylesheet
-                if isinstance(color_rgba, (tuple, list, np.ndarray)):
-                    # Matplotlib colors are 0-1, convert to 0-255 hex
-                    r, g, b = [int(c * 255) for c in color_rgba[:3]]
-                    hex_color = f"#{r:02x}{g:02x}{b:02x}"
-                else:
-                    hex_color = color_rgba # Already hex or string
-                
-                item_widget = QWidget()
-                item_layout = QHBoxLayout(item_widget)
-                item_layout.setContentsMargins(4, 2, 4, 2)
-                item_layout.setSpacing(8)
-                
-                # Color indicator
-                color_box = QLabel()
-                color_box.setFixedSize(12, 12)
-                color_box.setStyleSheet(f"background-color: {hex_color}; border-radius: 6px;")
-                item_layout.addWidget(color_box)
-                
-                # Checkbox with label
-                chk = QCheckBox(label)
-                chk.setChecked(True)
-                chk.setStyleSheet("font-size: 11px; color: #333333;")
-                
-                # Connect checkbox to line visibility
-                # Use default argument to capture current line/chk
-                def toggle_line(state, l=line, c=chk):
-                    visible = (state == Qt.Checked)
-                    l.set_visible(visible)
-                    # Redraw
-                    fig1.canvas.draw()
-                    
-                chk.stateChanged.connect(toggle_line)
-                item_layout.addWidget(chk)
-                item_layout.addStretch()
-                
-                self.pigment_list_layout.insertWidget(i, item_widget)
-
-            # Store lines for interactive toggling (via plot click)
-            self.exciton_distribution_plot.legend_lines = lines
-            self.exciton_distribution_plot.legend_labels = line_labels
-            
-            # Make lines interactive
-            for line in lines:
-                line.set_picker(5)
-            
-            # Connect click event
-            # Update checkbox when line is clicked on plot
-            def on_plot_pick(event):
-                self.on_line_pick(event, fig1, lines, line_labels)
-                # Sync checkboxes
-                for i, line in enumerate(lines):
-                    # Find the checkbox widget at index i
-                    item = self.pigment_list_layout.itemAt(i)
-                    if item and item.widget():
-                        # The checkbox is the second widget in the layout (index 1)
-                        chk_widget = item.widget().layout().itemAt(1).widget()
-                        if isinstance(chk_widget, QCheckBox):
-                            chk_widget.blockSignals(True)
-                            chk_widget.setChecked(line.get_visible())
-                            chk_widget.blockSignals(False)
-
-            fig1.canvas.mpl_connect('pick_event', on_plot_pick)
-
-            self.exciton_distribution_plot.canvas.draw()
-            self.exciton_distribution_plot.update()
-
-            # Plot 2: Combined Analysis (Right Card)
-            # Combined Absorption (Top) and Exciton Subset (Bottom) sharing x-axis
-            fig2 = self.combined_analysis_plot.figure
-            fig2.clear()
-            
-            # Create subplots sharing x-axis
-            # GridSpec allows for custom height ratios
-            gs = fig2.add_gridspec(2, 1, height_ratios=[1, 1.2], hspace=0.05)
-            ax_top = fig2.add_subplot(gs[0])
-            ax_bottom = fig2.add_subplot(gs[1], sharex=ax_top)
-            
-            # Top: Absorption Spectrum
+            # Styling for Right Top (Absorption)
             if self.spectrum_data is not None:
                 wavelengths_abs = self.spectrum_data.get('wavelengths_abs',
                                                         self.spectrum_data.get('wavelengths'))
                 absorption = self.spectrum_data.get('absorption',
                                                    self.spectrum_data.get('spectrum'))
-                
-                # Plot absorption (black line as in reference)
                 ax_top.plot(wavelengths_abs, absorption, 'k-', linewidth=3.0, label='Absorption')
-                
-                # If there's a second component (e.g. fluorescence or another spectrum), plot it too
-                # For now, let's just plot the main absorption clearly
-                
                 ax_top.set_ylabel('Absorption (a.u.)', fontsize=10, fontweight='bold')
                 ax_top.tick_params(axis='both', which='major', labelsize=9)
-                ax_top.grid(False) # Clean look
-                
-                # Hide x-axis labels for top plot
+                ax_top.grid(False)
                 plt.setp(ax_top.get_xticklabels(), visible=False)
-                
-                # Remove top and right spines
                 ax_top.spines['top'].set_visible(False)
                 ax_top.spines['right'].set_visible(False)
             else:
                 ax_top.text(0.5, 0.5, "No Spectrum Data", ha='center', va='center')
                 ax_top.axis('off')
 
-            # Bottom: Exciton Subset (Density)
-            lines_subset = []
-            labels_subset = []
-            
-            # Plot subset of excitons (e.g. first 5-8 significant ones)
-            # Use a different color cycle or specific colors
-            subset_colors = plt.cm.tab10(np.linspace(0, 1, 10))
-            
-            for i, label in enumerate(labels[:8]): # Show a few more for the combined view
-                energies, probs = distributions[label]
-                energies = np.array(energies)
-                probs = np.array(probs)
-                wavelengths = np.array([1e7 / e if e > 0 else 0 for e in energies])
-                valid_mask = (wavelengths > 0) & (probs > 0) & np.isfinite(wavelengths) & np.isfinite(probs)
-                wavelengths = wavelengths[valid_mask]
-                probs = probs[valid_mask]
-                
-                if len(wavelengths) < 3: continue
-                
-                bins = np.linspace(x_min, x_max, 200)
-                hist, _ = np.histogram(wavelengths, bins=bins, weights=probs, density=False)
-                bin_centers = (bins[:-1] + bins[1:]) / 2
-                if hist.sum() > 0: hist = hist / hist.sum()
-                hist_smooth = gaussian_filter1d(hist, sigma=3)
-                
-                # Plot filled area for density look (like reference)
-                # ax_bottom.fill_between(bin_centers, hist_smooth, alpha=0.3, color=subset_colors[i % 10])
-                line, = ax_bottom.plot(bin_centers, hist_smooth, linewidth=2.0, 
-                                     label=label.split('_')[-1], color=subset_colors[i % 10], alpha=0.9)
-                lines_subset.append(line)
-                labels_subset.append(label.split('_')[-1])
-                
-                # Add small peak markers/labels if needed, but keeping it clean for now
-                # Reference image has small markers with numbers
-
+            # Styling for Right Bottom (Exciton)
             ax_bottom.set_xlabel('Wavelength (nm)', fontsize=10, fontweight='bold')
             ax_bottom.set_ylabel('Density', fontsize=10, fontweight='bold')
             ax_bottom.tick_params(axis='both', which='major', labelsize=9)
             ax_bottom.set_xlim(x_min, x_max)
-            
-            # Clean look for bottom plot too
             ax_bottom.spines['top'].set_visible(False)
             ax_bottom.spines['right'].set_visible(False)
-            ax_bottom.grid(axis='x', alpha=0.3) # Vertical grid lines only
-            
-            # Adjust layout
-            # Increased left margin to ensure y-axis labels are fully visible
+            ax_bottom.grid(axis='x', alpha=0.3)
             fig2.subplots_adjust(bottom=0.15, top=0.95, left=0.18, right=0.95)
-            
-            # Add legend for subset if needed, or rely on the main plot
-            # For the combined view, a small legend inside or below is good
-            if len(lines_subset) > 0:
-                ax_bottom.legend(lines_subset, labels_subset, loc='upper right', 
-                               ncol=2, fontsize=8, frameon=False)
 
+            # Populate the side pigment list (Controls BOTH plots)
+            while self.pigment_list_layout.count() > 1: 
+                item = self.pigment_list_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            
+            for i, (line1, line2, label) in enumerate(zip(lines_left, lines_right, line_labels)):
+                # Get color from line
+                color_rgba = line1.get_color()
+                if isinstance(color_rgba, (tuple, list, np.ndarray)):
+                    r, g, b = [int(c * 255) for c in color_rgba[:3]]
+                    hex_color = f"#{r:02x}{g:02x}{b:02x}"
+                else:
+                    hex_color = color_rgba
+                
+                item_widget = QWidget()
+                item_layout = QHBoxLayout(item_widget)
+                item_layout.setContentsMargins(4, 2, 4, 2)
+                item_layout.setSpacing(8)
+                
+                color_box = QLabel()
+                color_box.setFixedSize(12, 12)
+                color_box.setStyleSheet(f"background-color: {hex_color}; border-radius: 6px;")
+                item_layout.addWidget(color_box)
+                
+                chk = QCheckBox(label)
+                chk.setChecked(True)
+                chk.setStyleSheet("font-size: 11px; color: #333333;")
+                
+                # Connect checkbox to BOTH lines
+                def toggle_lines(state, l1=line1, l2=line2):
+                    visible = (state == Qt.Checked)
+                    l1.set_visible(visible)
+                    l2.set_visible(visible)
+                    fig1.canvas.draw()
+                    fig2.canvas.draw()
+                    
+                chk.stateChanged.connect(toggle_lines)
+                item_layout.addWidget(chk)
+                item_layout.addStretch()
+                
+                self.pigment_list_layout.insertWidget(i, item_widget)
+
+            # Store lines for interactive toggling (via plot click)
+            self.exciton_distribution_plot.legend_lines = lines_left
+            self.exciton_distribution_plot.legend_labels = line_labels
+            
+            # Make lines interactive
+            for line in lines_left:
+                line.set_picker(5)
+            
+            # Connect click event on Left Plot
+            def on_plot_pick(event):
+                # We need to handle the pick manually to update both plots
+                if event.artist in lines_left:
+                    idx = lines_left.index(event.artist)
+                    line1 = lines_left[idx]
+                    line2 = lines_right[idx]
+                    
+                    # Toggle
+                    visible = not line1.get_visible()
+                    line1.set_visible(visible)
+                    line2.set_visible(visible)
+                    
+                    # Update styles
+                    if visible:
+                        line1.set_alpha(0.8); line1.set_linewidth(2.5)
+                        line2.set_alpha(0.9); line2.set_linewidth(2.0)
+                    else:
+                        line1.set_alpha(0.2); line1.set_linewidth(1.0)
+                        line2.set_alpha(0.2); line2.set_linewidth(1.0)
+                    
+                    fig1.canvas.draw()
+                    fig2.canvas.draw()
+                    
+                    # Sync Checkbox
+                    item = self.pigment_list_layout.itemAt(idx)
+                    if item and item.widget():
+                        chk_widget = item.widget().layout().itemAt(1).widget()
+                        if isinstance(chk_widget, QCheckBox):
+                            chk_widget.blockSignals(True)
+                            chk_widget.setChecked(visible)
+                            chk_widget.blockSignals(False)
+
+            fig1.canvas.mpl_connect('pick_event', on_plot_pick)
+
+            self.exciton_distribution_plot.canvas.draw()
+            self.exciton_distribution_plot.update()
             self.combined_analysis_plot.canvas.draw()
             self.combined_analysis_plot.update()
 
