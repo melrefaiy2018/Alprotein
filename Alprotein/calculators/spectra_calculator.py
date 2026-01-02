@@ -18,11 +18,17 @@ parameters share cached values automatically.
 Units: energies in cm^-1, time in fs, wavelength in nm, dipoles in Debye.
 """
 
+import logging
 import numpy as np
 from typing import Dict, Tuple, Optional
 from scipy.constants import hbar, c, k
 import pickle
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 # ==============================================================================
@@ -150,8 +156,9 @@ def _load_cache_from_disk():
         _CACHE_INITIALIZED = True
         return True
 
-    except Exception:
+    except Exception as e:
         # If cache is corrupted or incompatible, ignore and recompute
+        logger.warning(f"Failed to load g(t) cache from disk: {e}")
         return False
 
 
@@ -173,9 +180,9 @@ def _save_cache_to_disk():
         with open(_CACHE_FILE, 'wb') as f:
             pickle.dump(cache_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    except Exception:
+    except Exception as e:
         # Silently fail if we can't save - caching is optional
-        pass
+        logger.warning(f"Failed to save g(t) cache to disk: {e}")
 
 
 def _ensure_precomputed_cache():
