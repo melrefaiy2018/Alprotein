@@ -303,7 +303,7 @@ def plot_ld_distributions(
     unique_colors, unique_markers = get_unique_colors_and_markers(keys)
     
     # Initialize the figure and axes
-    fig, ax = plt.subplots(figsize=(13, 10))
+    _, ax = plt.subplots(figsize=(13, 10))
 
     # Iterate over each key in the dictionary
     for i, (key, (energies, probabilities)) in enumerate(data.items()):
@@ -546,7 +546,7 @@ def plot_exciton_distribution(
     -------
     None
     """
-    fig, ax = plt.subplots(figsize=(13, 10))
+    _, ax = plt.subplots(figsize=(13, 10))
     unique_colors, unique_markers = get_unique_colors_and_markers(list_site_label, color_mapping)
     existing_labels = []
 
@@ -631,7 +631,7 @@ def plot_combined_absorption_and_exciton(
     -------
     None
     """
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
+    _, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
     
     ax1.plot(sliced_lambda_axis_a, absorption_data / np.max(absorption_data), linewidth=8, color='green', label=f'A_mohamed_{temp}', alpha=0.5)
     if exp_absorption is not None:
