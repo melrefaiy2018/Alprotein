@@ -39,6 +39,8 @@ class CustomToolbar(NavigationToolbar):
         super().__init__(canvas, parent)
         # Set icon size to be clearer and more visible
         self.setIconSize(QSize(32, 32))
+        # Set background to white
+        self.setStyleSheet("background-color: #ffffff; border: none;")
 
 
 class SingleSpectrumPanel(QWidget):
