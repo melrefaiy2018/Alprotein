@@ -39,13 +39,7 @@ class DataTableWidget(QWidget):
         header_layout = QHBoxLayout()
 
         title = QLabel("DATA TABLE")
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 13px;
-                font-weight: bold;
-                color: #111111;
-            }
-        """)
+        title.setProperty("class", "page-title")
         header_layout.addWidget(title)
 
         header_layout.addStretch()
@@ -53,16 +47,7 @@ class DataTableWidget(QWidget):
         # Filter dropdown
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["All Data", "Site Energies Only", "High Energy", "Low Energy"])
-        self.filter_combo.setStyleSheet("""
-            QComboBox {
-                padding: 6px;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                background-color: #ffffff;
-                color: #111111;
-                min-width: 150px;
-            }
-        """)
+        self.filter_combo.setMinimumWidth(150)
         self.filter_combo.currentTextChanged.connect(self.apply_filter)
         header_layout.addWidget(self.filter_combo)
 
@@ -70,18 +55,6 @@ class DataTableWidget(QWidget):
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search...")
         self.search_box.setMaximumWidth(200)
-        self.search_box.setStyleSheet("""
-            QLineEdit {
-                padding: 6px;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QLineEdit:focus {
-                border: 2px solid #111111;
-            }
-        """)
         self.search_box.textChanged.connect(self.apply_filter)
         header_layout.addWidget(self.search_box)
 
@@ -100,32 +73,6 @@ class DataTableWidget(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.setSortingEnabled(True)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background-color: #ffffff;
-                alternate-background-color: #f7f7f7;
-                gridline-color: #e6e6e6;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                color: #111111;
-            }
-            QHeaderView::section {
-                background-color: #111111;
-                color: #ffffff;
-                padding: 8px;
-                border: none;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            QTableWidget::item {
-                padding: 6px;
-                color: #111111;
-            }
-            QTableWidget::item:selected {
-                background-color: #111111;
-                color: #ffffff;
-            }
-        """)
 
         # Set column widths
         header = self.table.horizontalHeader()
@@ -148,22 +95,22 @@ class DataTableWidget(QWidget):
         button_layout = QHBoxLayout()
 
         self.copy_btn = QPushButton("📋 Copy Selected")
-        self.copy_btn.setStyleSheet(self._button_style("#111111"))
+        self.copy_btn.setProperty("class", "primary")
         self.copy_btn.clicked.connect(self.copy_selected)
         button_layout.addWidget(self.copy_btn)
 
         self.export_csv_btn = QPushButton("💾 Export CSV")
-        self.export_csv_btn.setStyleSheet(self._button_style("#111111"))
+        self.export_csv_btn.setProperty("class", "primary")
         self.export_csv_btn.clicked.connect(self.export_requested.emit)
         button_layout.addWidget(self.export_csv_btn)
 
         self.export_json_btn = QPushButton("📄 Export JSON")
-        self.export_json_btn.setStyleSheet(self._button_style("#111111"))
+        self.export_json_btn.setProperty("class", "primary")
         self.export_json_btn.clicked.connect(self.export_json)
         button_layout.addWidget(self.export_json_btn)
 
         self.plot_btn = QPushButton("📊 Plot")
-        self.plot_btn.setStyleSheet(self._button_style("#111111"))
+        self.plot_btn.setProperty("class", "primary")
         self.plot_btn.clicked.connect(self.plot_requested.emit)
         button_layout.addWidget(self.plot_btn)
 
@@ -173,40 +120,8 @@ class DataTableWidget(QWidget):
 
         # Status label
         self.status_label = QLabel("No data loaded")
-        self.status_label.setStyleSheet("color: #6b6b6b; font-style: italic; font-size: 11px;")
+        self.status_label.setProperty("class", "label")
         main_layout.addWidget(self.status_label)
-
-    def _button_style(self, color):
-        """Generate button style with given color"""
-        return f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                border: 1px solid {color};
-                padding: 8px 16px;
-                border-radius: 2px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {self._darken_color(color)};
-            }}
-            QPushButton:pressed {{
-                background-color: {self._darken_color(color, 0.3)};
-            }}
-        """
-
-    def _darken_color(self, hex_color, factor=0.2):
-        """Darken a hex color"""
-        # Simple darkening by reducing RGB values
-        r = int(hex_color[1:3], 16)
-        g = int(hex_color[3:5], 16)
-        b = int(hex_color[5:7], 16)
-
-        r = int(r * (1 - factor))
-        g = int(g * (1 - factor))
-        b = int(b * (1 - factor))
-
-        return f"#{r:02x}{g:02x}{b:02x}"
 
     def update_data(self, site_energies: Dict[str, float], vacuum_energies: Dict[str, float],
                     couplings: Dict[str, Any] = None, contributions: Dict[str, Any] = None):
@@ -220,7 +135,9 @@ class DataTableWidget(QWidget):
 
         self.populate_table()
         self.status_label.setText(f"Showing {len(site_energies)} pigments")
-        self.status_label.setStyleSheet("color: #1f7a44; font-weight: bold; font-size: 11px;")
+        self.status_label.setProperty("class", "label-success")
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
 
     def populate_table(self):
         """Populate table with data"""
@@ -403,4 +320,6 @@ class DataTableWidget(QWidget):
         self.table.setRowCount(0)
         self.data = {}
         self.status_label.setText("No data loaded")
-        self.status_label.setStyleSheet("color: #6b6b6b; font-style: italic; font-size: 11px;")
+        self.status_label.setProperty("class", "label")
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)

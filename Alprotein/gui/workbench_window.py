@@ -261,37 +261,7 @@ class ScientificWorkbenchWindow(QWidget):
 
         # LEFT: Workspace with tabs (3D viewer, dashboard, table)
         self.workspace_tabs = QTabWidget()
-        self.workspace_tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                background-color: #ffffff;
-            }
-            QTabBar {
-                qproperty-expanding: 0;
-            }
-            QTabBar::tab {
-                background-color: #f3f3f3;
-                color: #111111;
-                padding: 10px 20px;
-                min-width: 120px;
-                border: 1px solid #e1e1e1;
-                border-bottom: none;
-                border-top-left-radius: 2px;
-                border-top-right-radius: 2px;
-                margin-right: 2px;
-                font-size: 13px;
-            }
-            QTabBar::tab:selected {
-                background-color: #ffffff;
-                color: #111111;
-                font-weight: bold;
-            }
-            QTabBar::tab:hover {
-                background-color: #ededed;
-                color: #111111;
-            }
-        """)
+        # Stylesheet removed to use global styles
 
         # Tab 0: 3D Structure Viewer (KEEP)
         self.protein_viewer = ProteinViewer()

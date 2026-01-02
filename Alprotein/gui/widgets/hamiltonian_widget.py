@@ -65,28 +65,13 @@ class HamiltonianWidget(QWidget):
     def create_site_energy_plot_widget(self):
         """Create the site energy shift bar plot widget"""
         widget = QGroupBox("SITE ENERGY SHIFTS")
-        widget.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                margin-top: 12px;
-                padding-top: 10px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-        """)
+        widget.setProperty("class", "card")
 
         layout = QVBoxLayout(widget)
         layout.setSpacing(10)
 
         # Site energy shift bar plot
-        self.site_energy_figure = Figure(figsize=(8, 6), facecolor='white', dpi=100)
+        self.site_energy_figure = Figure(figsize=(8, 6), dpi=100)
         self.site_energy_canvas = FigureCanvas(self.site_energy_figure)
         self.site_energy_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -94,7 +79,7 @@ class HamiltonianWidget(QWidget):
 
         # Plot info
         self.plot_info_label = QLabel("Site energies not calculated")
-        self.plot_info_label.setStyleSheet("color: #6b6b6b; font-style: italic;")
+        self.plot_info_label.setProperty("class", "label")
         self.plot_info_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.plot_info_label)
 
@@ -104,45 +89,13 @@ class HamiltonianWidget(QWidget):
         self.view_matrix_btn = QPushButton("📋 View Full Matrix")
         self.view_matrix_btn.clicked.connect(self.view_full_matrix.emit)
         self.view_matrix_btn.setEnabled(False)
-        self.view_matrix_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                border: 1px solid #111111;
-                padding: 6px 12px;
-                border-radius: 2px;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-            QPushButton:disabled {
-                background-color: #f3f3f3;
-                color: #b0b0b0;
-                border: 1px solid #e1e1e1;
-            }
-        """)
+        self.view_matrix_btn.setProperty("class", "primary")
         btn_layout.addWidget(self.view_matrix_btn)
 
         self.export_matrix_btn = QPushButton("💾 Export")
         self.export_matrix_btn.clicked.connect(self.export_requested.emit)
         self.export_matrix_btn.setEnabled(False)
-        self.export_matrix_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #111111;
-                border: 1px solid #111111;
-                padding: 6px 12px;
-                border-radius: 2px;
-            }
-            QPushButton:hover {
-                background-color: #efefef;
-            }
-            QPushButton:disabled {
-                background-color: #f3f3f3;
-                color: #b0b0b0;
-                border: 1px solid #e1e1e1;
-            }
-        """)
+        self.export_matrix_btn.setProperty("class", "secondary")
         btn_layout.addWidget(self.export_matrix_btn)
 
         btn_layout.addStretch()
@@ -153,61 +106,29 @@ class HamiltonianWidget(QWidget):
     def create_info_widget(self):
         """Create the info widget with site energies and domains"""
         widget = QGroupBox("SITE ENERGIES & DOMAINS")
-        widget.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                margin-top: 12px;
-                padding-top: 10px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-        """)
+        widget.setProperty("class", "card")
 
         layout = QVBoxLayout(widget)
         layout.setSpacing(10)
 
         # Hamiltonian settings
         settings_group = QGroupBox("HAMILTONIAN SETTINGS")
-        settings_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                margin-top: 10px;
-                padding-top: 8px;
-                background-color: #ffffff;
-                color: #111111;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 8px;
-                padding: 0 5px;
-            }
-        """)
+        settings_group.setProperty("class", "card")
         settings_layout = QVBoxLayout(settings_group)
         settings_layout.setSpacing(6)
 
         method_label = QLabel("Coupling Method")
-        method_label.setStyleSheet("font-weight: bold; color: #111111; font-size: 11px;")
+        method_label.setProperty("class", "label")
         settings_layout.addWidget(method_label)
 
         self.method_group = QButtonGroup(self)
         self.tresp_radio = QRadioButton("TrEsp")
         self.tresp_radio.setChecked(True)
-        self.tresp_radio.setStyleSheet("color: #111111;")
         self.tresp_radio.toggled.connect(self.on_parameters_changed)
         self.method_group.addButton(self.tresp_radio)
         settings_layout.addWidget(self.tresp_radio)
 
         self.dipole_radio = QRadioButton("Dipole")
-        self.dipole_radio.setStyleSheet("color: #111111;")
         self.dipole_radio.toggled.connect(self.on_parameters_changed)
         self.method_group.addButton(self.dipole_radio)
         settings_layout.addWidget(self.dipole_radio)
@@ -228,30 +149,14 @@ class HamiltonianWidget(QWidget):
         # Site Energies Header
         header_layout = QHBoxLayout()
         site_label = QLabel("Site Energies (Domain cutoff: 20 cm⁻¹)")
-        site_label.setStyleSheet("font-weight: bold; color: #111111; font-size: 12px;")
+        site_label.setProperty("class", "card-title")
         header_layout.addWidget(site_label)
         header_layout.addStretch()
 
         self.run_hamiltonian_btn = QPushButton("▶ Run Hamiltonian")
         self.run_hamiltonian_btn.clicked.connect(self.run_hamiltonian_requested.emit)
         self.run_hamiltonian_btn.setEnabled(False)
-        self.run_hamiltonian_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #111111;
-                color: #ffffff;
-                border: 1px solid #111111;
-                padding: 6px 12px;
-                border-radius: 2px;
-            }
-            QPushButton:hover {
-                background-color: #000000;
-            }
-            QPushButton:disabled {
-                background-color: #f3f3f3;
-                color: #b0b0b0;
-                border: 1px solid #e1e1e1;
-            }
-        """)
+        self.run_hamiltonian_btn.setProperty("class", "primary")
         header_layout.addWidget(self.run_hamiltonian_btn)
         layout.addLayout(header_layout, stretch=0)
 
@@ -269,21 +174,7 @@ class HamiltonianWidget(QWidget):
         self.site_energy_table.setEditTriggers(
             QTableWidget.DoubleClicked | QTableWidget.SelectedClicked | QTableWidget.EditKeyPressed
         )
-        self.site_energy_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #ffffff;
-                alternate-background-color: #f7f7f7;
-                gridline-color: #e6e6e6;
-                color: #111111;
-            }
-            QHeaderView::section {
-                background-color: #f3f3f3;
-                color: #111111;
-                padding: 6px;
-                border: 1px solid #e1e1e1;
-                font-weight: bold;
-            }
-        """)
+        # Removed inline stylesheet to use global styles
         self.site_energy_table.itemChanged.connect(self.on_site_energy_item_changed)
         layout.addWidget(self.site_energy_table, stretch=1)
 
