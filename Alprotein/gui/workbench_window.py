@@ -490,7 +490,7 @@ class ScientificWorkbenchWindow(QWidget):
         self.pigment_list_layout = QVBoxLayout(self.pigment_list_widget)
         self.pigment_list_layout.setContentsMargins(8, 8, 8, 8)
         self.pigment_list_layout.setSpacing(4)
-        self.pigment_list_layout.addStretch() # Push items to top
+        self.pigment_list_layout.addStretch()  # Push items to the top
         
         self.pigment_scroll.setWidget(self.pigment_list_widget)
         legend_layout.addWidget(self.pigment_scroll)
