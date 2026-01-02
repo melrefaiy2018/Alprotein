@@ -261,13 +261,14 @@ def clear_g_function_cache(clear_disk=False):
     """
     global _CACHE_INITIALIZED
     _G_FUNCTION_CACHE.clear()
-    _CACHE_INITIALIZED = False
 
-    if clear_disk and _CACHE_FILE.exists():
-        try:
-            _CACHE_FILE.unlink()
-        except Exception:
-            pass
+    if clear_disk:
+        if _CACHE_FILE.exists():
+            try:
+                _CACHE_FILE.unlink()
+            except Exception:
+                pass
+        _CACHE_INITIALIZED = False
 
 
 class SpectraCalculator:
