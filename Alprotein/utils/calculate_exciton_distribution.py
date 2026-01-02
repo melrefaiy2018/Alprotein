@@ -408,7 +408,7 @@ def get_unique_colors_and_markers(
                             '#4287f5', '#a51c1c', '#5438dc', '#218c74', '#161D6F', '#2C363F',
                             '#6D326D', '#101820']
     custom_markers = ['o', 's', '^', 'v', 'D', 'p', 'H', 'X', '*', '+', '.', '|', '_', '1', '2', '3', '4', '<', '>',
-                      '8', 's', 'p', 'P', 'X', 'D', 'd', 'H', 'h', '^', 'v', '<', '>']
+                      '8', 'P', 'd', 'h']
 
     # Shuffle the palettes to provide variety
     shuffled_colors = custom_color_palette.copy()
