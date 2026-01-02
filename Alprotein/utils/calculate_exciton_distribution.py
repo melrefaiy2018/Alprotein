@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Dict, Tuple, Union, Optional
 import random
+from itertools import cycle
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import rcParams
 import seaborn as sns
@@ -384,6 +385,9 @@ def get_unique_colors_and_markers(
 ) -> Tuple[List[str], List[str]]:
     """
     Generate unique colors and markers for plotting based on site labels.
+    
+    When there are more site labels than available colors or markers, the function
+    cycles through the available palettes to ensure every label gets a color and marker.
 
     Parameters:
     ----------
@@ -395,9 +399,9 @@ def get_unique_colors_and_markers(
     Returns:
     -------
     unique_colors : List[str]
-        List of unique color codes for each site label.
+        List of unique color codes for each site label (cycles if needed).
     unique_markers : List[str]
-        List of unique markers for each site label.
+        List of unique markers for each site label (cycles if needed).
     """
     custom_color_palette = ['#E63946', '#457B9D', '#1D3557', '#2A9D8F', '#7209B7', '#EA4C89',
                             '#6A0572', '#9A031E', '#4A90E2', '#4ECDC4', '#1E90FF', '#FF6B6B',
@@ -406,16 +410,25 @@ def get_unique_colors_and_markers(
     custom_markers = ['o', 's', '^', 'v', 'D', 'p', 'H', 'X', '*', '+', '.', '|', '_', '1', '2', '3', '4', '<', '>',
                       '8', 's', 'p', 'P', 'X', 'D', 'd', 'H', 'h', '^', 'v', '<', '>']
 
-    num_unique_colors = min(len(list_site_label), len(custom_color_palette))
-    num_unique_markers = min(len(list_site_label), len(custom_markers))
+    # Shuffle the palettes to provide variety
+    shuffled_colors = custom_color_palette.copy()
+    shuffled_markers = custom_markers.copy()
+    random.shuffle(shuffled_colors)
+    random.shuffle(shuffled_markers)
+    
+    # Create cyclic iterators
+    color_cycle = cycle(shuffled_colors)
+    marker_cycle = cycle(shuffled_markers)
+    
+    # Generate colors and markers for all labels
+    unique_colors = [next(color_cycle) for _ in list_site_label]
+    unique_markers = [next(marker_cycle) for _ in list_site_label]
 
-    unique_colors = random.sample(custom_color_palette, num_unique_colors)
-    unique_markers = random.sample(custom_markers, num_unique_markers)
-
+    # Apply color mapping overrides
     if color_mapping:
-        for label in list_site_label:
+        for i, label in enumerate(list_site_label):
             if label in color_mapping:
-                unique_colors[list_site_label.index(label)] = color_mapping[label]
+                unique_colors[i] = color_mapping[label]
 
     return unique_colors, unique_markers
 
@@ -650,8 +663,8 @@ def plot_combined_absorption_and_exciton(
         list_nm = [1e7 / energy if energy > 0 else 0 for energy in list_energy]
         list_weight = exciton_distribution[site][1]
 
-        color = unique_colors[i % len(unique_colors)]
-        # marker = unique_markers[i % len(unique_markers)]
+        color = unique_colors[i]
+        # marker = unique_markers[i]
 
         kde = sns.kdeplot(x=list_nm, weights=list_weight, cut=2, linewidth=4, alpha=0.7, ax=ax2, color=color, label=f'{site}')
 
