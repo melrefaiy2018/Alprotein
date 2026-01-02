@@ -557,7 +557,6 @@ def plot_exciton_distribution(
         list_weight = exciton_distribution[site][1]
 
         color = unique_colors[i]
-        marker = unique_markers[i % len(unique_markers)]
 
         kde = sns.kdeplot(x=list_nm, weights=list_weight, cut=2, linewidth=4, alpha=0.7, ax=ax, color=color, label=f'{site}')
 
