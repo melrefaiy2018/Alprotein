@@ -224,7 +224,6 @@ def calculate_ld_distribution(
 
     # Construct the domain coefficients and energies.
     for domain in list_pigment_domains:
-        print(domain)  # Debug print to show the current domain.
         
         # Get the indices of pigments in the domain.
         domain_indices = [label_to_index[pigment] for pigment in domain]
