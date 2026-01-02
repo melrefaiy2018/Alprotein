@@ -1085,7 +1085,7 @@ class ScientificWorkbenchWindow(QWidget):
             # Fallback if spectra not calculated yet
             params = self.get_all_parameters()
             self.exciton_calculator = ExcitonCalculator(
-                disorder_sigma=55.0,  # Default sigma (120 FWHM converted)
+                disorder_sigma=55.0,  # Default sigma (~130 cm^-1 FWHM)
                 n_ensemble=params.get('n_ensemble', 100),
                 temperature=params.get('temperature', 77.0)
             )
