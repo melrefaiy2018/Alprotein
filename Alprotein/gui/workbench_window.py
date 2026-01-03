@@ -774,6 +774,10 @@ class ScientificWorkbenchWindow(QWidget):
             self.calculated_site_energies = {}
             self.site_energies = {}
             self.pigment_labels = None
+            self.hamiltonian = None
+            self.eigenvalues = None
+            self.eigenvectors = None
+            self.hamiltonian_widget.clear()
             self.hamiltonian_widget.set_run_enabled(True)
             self.spectrum_widget.set_run_enabled(False)
 
