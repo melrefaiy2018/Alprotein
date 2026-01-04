@@ -128,21 +128,68 @@ class ProteinStructure:
             raise Exception(f"Failed to parse PDB file {pdb_path}: {str(e)}")
     
     @classmethod
-    def from_file_extended(cls, pdb_path: str, name: str) -> 'ProteinStructure': #TODO: this is now loading the mcce file without conversion. so we need to update the docstring and the method name.
+    def from_file_extended(cls, pdb_path: str, name: str) -> 'ProteinStructure':
         """
         Create a ProteinStructure from an extended PDB file with enhanced parsing.
-        
+
+        Supports two ATOM line formats with automatic per-line detection:
+
+        **Format 1 (Extended MCCE)**:
+            Fixed column positions with conformer IDs and charges::
+
+                ATOM      1  N   PRO 40005_000 -13.450 -11.506  21.344   1.500      -0.055      BK____M000
+
+            - Conformer IDs supported (e.g., _000, _001)
+            - Occupancy and B-factor fields present
+            - Charges and identifiers parsed from variable positions
+
+        **Format 2 (Standard with Variable Spacing)**:
+            Token-based parsing with explicit element symbols::
+
+                ATOM      1    N PRO 40005     -13.450 -11.506  21.344                      N   -0.055     BK
+
+            - Variable whitespace between fields
+            - No conformer IDs
+            - Element symbol explicitly provided
+            - Default values for missing fields (occupancy=1.0, chain='A')
+
+        **Format Detection**: Automatic and per-line based on:
+            - Presence of underscore in residue sequence field → Format 1
+            - Token count of 11 → Format 2
+            - Defaults to Format 1 for ambiguous cases
+
+        **Parsed Fields**: Both formats extract:
+            - Coordinates, charges, element symbols, identifiers
+            - Missing elements inferred from atom names
+            - Missing charges default to 0.0, assigned later via q00
+
         This method creates a custom BioPython structure while preserving all
         extended information from the PDB file.
-        
+
         Args:
             pdb_path: Path to the extended PDB file
             name: Name identifier for the structure
-            
+
         Returns:
-            ProteinStructure instance with extended metadata
+            ProteinStructure instance with extended metadata including charges,
+            conformer IDs (Format 1 only), and identifiers
+
+        Raises:
+            FileNotFoundError: If PDB file doesn't exist
+            Exception: If parsing fails
+
+        Examples:
+            >>> protein = ProteinStructure.from_file_extended('protein.pdb', 'my_protein')
+            >>> atoms = protein.get_atoms_with_charges()
+            >>> print(f"Loaded {len(atoms)} atoms with charges")
         """
         try:
+            with open(pdb_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            if cls._needs_custom_structure(lines):
+                return cls.from_extended_lines(lines, name)
+
             # First create using standard parser to get basic structure
             parser = PDB.PDBParser(QUIET=True)
             structure = parser.get_structure(name, pdb_path)
@@ -159,6 +206,30 @@ class ProteinStructure:
             raise FileNotFoundError(f"PDB file not found: {pdb_path}")
         except Exception as e:
             raise Exception(f"Failed to parse extended PDB file {pdb_path}: {str(e)}")
+
+    @classmethod
+    def _needs_custom_structure(cls, lines: List[str]) -> bool:
+        for line in lines:
+            if not line.startswith(('ATOM', 'HETATM')):
+                continue
+            tokens = line.split()
+            if not tokens:
+                continue
+            resseq_token_idx = 4
+            if tokens[0].startswith(('ATOM', 'HETATM')) and len(tokens[0]) > 6 and tokens[0][6:].isdigit():
+                resseq_token_idx = 3
+            if len(tokens) <= resseq_token_idx:
+                continue
+            resseq_token = tokens[resseq_token_idx]
+            if '_' in resseq_token:
+                return True
+            resseq_digits = cls._extract_resseq_digits(resseq_token)
+            if not resseq_digits:
+                continue
+            col_digits = re.sub(r'[^0-9]', '', line[22:26])
+            if resseq_digits != col_digits:
+                return True
+        return False
 
     @classmethod
     def from_file_with_parameters(cls, pdb_path, parameter_config=None, name=None):
@@ -327,13 +398,15 @@ class ProteinStructure:
                             altloc=atom_data['altloc'],
                             fullname=atom_data['fullname'],
                             serial_number=atom_data['serial'],
-                            element=atom_data['element']
+                            element=atom_data['element'].upper() if atom_data['element'] else atom_data['element']
                         )
                         
                         # Add extended attributes
                         atom.charge = atom_data['charge']
                         atom.conformer_id = atom_data.get('conformer_id', '')
                         atom.identifier = atom_data.get('identifier', '')
+                        if 'identifier_full' in atom_data:
+                            atom.identifier_full = atom_data['identifier_full']
                         atom.occupancy_extended = atom_data.get('occupancy_extended', 1.0)
                         
                         # Add to residue
@@ -354,6 +427,8 @@ class ProteinStructure:
         
         # Fix element types for all atoms after parsing
         corrected_elements = protein_structure.fix_element_types()
+
+        protein_structure._assign_q00_to_protein_atoms()
         
         protein_structure.parsing_info = {
             'total_lines': len(pdb_lines),
@@ -450,134 +525,390 @@ class ProteinStructure:
         else:
             # For other cases, just use the first character
             return first_char
-    
-    def _parse_extended_atom_line(self, line: str, line_num: int) -> Dict[str, Any]:
-            """
-            Parse an extended PDB atom line with enhanced format.
-            
-            Expected format:
-            ATOM      1  N   ASN A0002_000 -41.421  26.792   2.542   1.500      -0.434      BK____M000
-            Positions:                                           54-60   66-78      84+
-                                                            occupancy charge   identifier
-            
-            Args:
-                line: PDB line to parse
-                line_num: Line number for error reporting
-                
-            Returns:
-                Dictionary with parsed atom data or None if parsing fails
-            """
-            if len(line) < 54:  # Minimum length for coordinates
-                return None
-            
-            try:
-                # Standard PDB fields
-                record_type = line[0:6].strip()
-                serial = int(line[6:11].strip())
-                name = line[12:16].strip()
-                altloc = line[16:17].strip()
-                resname = line[17:20].strip()
-                chain_id = line[21:22].strip() or 'A'  # Default to 'A' if empty
-                
-                # Parse coordinates
-                x = float(line[30:38].strip())
-                y = float(line[38:46].strip())
-                z = float(line[46:54].strip())
-                coord = np.array([x, y, z], dtype=np.float64)
-                
-                # Parse occupancy and B-factor
-                occupancy = float(line[54:60].strip()) if len(line) > 60 and line[54:60].strip() else 1.0
-                bfactor = float(line[60:66].strip()) if len(line) > 66 and line[60:66].strip() else 0.0
-                
-                # Parse element - check if provided in standard PDB element field (positions 76-78)
-                element = ''
-                if len(line) > 78:
-                    element = line[76:78].strip()
-                
-                # Fix element type using our correction method
-                element = self._fix_element_type(name, resname, element)
-                
-                # Handle extended residue ID format (e.g., A0002_000)
-                resseq_field = line[22:30].strip()  # Extended field for residue sequence
-                if '_' in resseq_field:
-                    # Extended format: A0002_000
-                    resseq_str, conformer_id = resseq_field.split('_', 1)
-                    resseq = int(re.sub(r'[A-Za-z]', '', resseq_str))  # Extract numeric part
+
+    def _detect_format(self, line: str) -> str:
+        """
+        Detect which ATOM line format is being used.
+
+        Returns:
+            'extended_mcce' for Format 1 (with conformer IDs like A0002_000)
+            'standard_variable' for Format 2 (variable spacing with explicit element)
+        """
+        # Check residue sequence field for extended format markers
+        resseq_field = line[22:30].strip()
+
+        # Format 1 has underscore in conformer ID (e.g., "40005_000")
+        if '_' in resseq_field:
+            return 'extended_mcce'
+
+        # Format 2 validation: token-based with resseq digits (optional letter prefix)
+        tokens = line.split()
+        if len(tokens) in (10, 11):
+            resseq_token_idx = 4
+            if tokens and tokens[0].startswith(('ATOM', 'HETATM')) and len(tokens) == 10:
+                if len(tokens[0]) > 6 and tokens[0][6:].isdigit():
+                    resseq_token_idx = 3
                 else:
-                    # Standard format
-                    resseq = int(line[22:26].strip())
-                    conformer_id = ''
-                
-                # Parse icode
-                icode = line[26:27].strip() if len(line) > 27 else ' '
-                
-                # Parse charge and identifier based on your specific format
-                charge = 0.0
-                identifier = ''
-                
-                # For your format, charge appears to be around positions 66-78
-                # and identifier starts around position 84
-                if len(line) > 66:
-                    # Extract the charge field - look for it in the region after B-factor
-                    # Your example: "      -0.434      BK____M000"
-                    charge_and_id_region = line[66:]
-                    
-                    # Split into potential fields
-                    parts = charge_and_id_region.split()
-                    
-                    for i, part in enumerate(parts):
-                        part = part.strip()
-                        if not part:
+                    return 'extended_mcce'
+            if len(tokens) > resseq_token_idx:
+                resseq_digits = self._extract_resseq_digits(tokens[resseq_token_idx])
+                if resseq_digits:
+                    return 'standard_variable'
+
+        # Default to extended_mcce for backward compatibility
+        return 'extended_mcce'
+
+    @staticmethod
+    def _extract_resseq_digits(resseq_token: str) -> str:
+        resseq_base = resseq_token.split('_', 1)[0].strip()
+        return re.sub(r'[^0-9]', '', resseq_base)
+
+    @staticmethod
+    def _normalize_identifier(identifier: str) -> str:
+        if not identifier:
+            return ''
+        identifier = identifier.strip()
+        if len(identifier) <= 2:
+            return identifier
+        return identifier[:2]
+
+    @staticmethod
+    def _infer_conformer_id(identifier: str) -> str:
+        if not identifier:
+            return ''
+        identifier = identifier.strip()
+        if identifier.isdigit():
+            return identifier.zfill(3)
+        if identifier.upper() == 'BK':
+            return '000'
+        return ''
+
+    @staticmethod
+    def _is_pigment_resname(resname: str) -> bool:
+        return resname.strip().upper() in {'CLA', 'CHL', 'BCL', 'CHD', 'PEO', 'CAR'}
+
+    @staticmethod
+    def _parse_chain_and_resseq(resseq_token: str, line_chain: str) -> Tuple[str, int]:
+        resseq_base = resseq_token.split('_', 1)[0].strip()
+        token_chain = ''
+        if resseq_base and resseq_base[0].isalpha():
+            token_chain = resseq_base[0]
+            resseq_digits = re.sub(r'[^0-9]', '', resseq_base[1:])
+        else:
+            resseq_digits = re.sub(r'[^0-9]', '', resseq_base)
+
+        if not resseq_digits:
+            raise ValueError(f"Invalid residue sequence token: {resseq_token!r}")
+
+        chain_id = token_chain or line_chain or 'A'
+        if not token_chain and line_chain and line_chain.isdigit() and len(resseq_digits) > 4:
+            chain_id = 'A'
+
+        return chain_id, int(resseq_digits)
+
+    def _build_atom_dict(self, record_type: str, serial: int, name: str,
+                         altloc: str, resname: str, chain_id: str,
+                         resseq: int, icode: str, coord: np.ndarray,
+                         occupancy: float, bfactor: float, element: str,
+                         charge: float, conformer_id: str, identifier: str,
+                         original_line: str) -> Dict[str, Any]:
+        """
+        Build standardized atom data dictionary.
+
+        This ensures both format parsers return identical data structures,
+        maintaining consistency across the codebase.
+
+        Args:
+            record_type: ATOM or HETATM
+            serial: Atom serial number
+            name: Atom name
+            altloc: Alternate location indicator
+            resname: Residue name
+            chain_id: Chain identifier
+            resseq: Residue sequence number
+            icode: Insertion code
+            coord: Numpy array of [x, y, z] coordinates
+            occupancy: Occupancy value
+            bfactor: B-factor (temperature factor)
+            element: Element symbol
+            charge: Partial charge
+            conformer_id: Conformer identifier (empty for Format 2)
+            identifier: Additional identifier string
+            original_line: Original PDB line
+
+        Returns:
+            Dictionary with standardized atom data
+        """
+        return {
+            'name': name,
+            'fullname': f" {name:<3}",  # Formatted for BioPython
+            'resname': resname,
+            'chain_id': chain_id,
+            'resseq': resseq,
+            'icode': icode,
+            'coord': coord,
+            'occupancy': occupancy,
+            'bfactor': bfactor,
+            'altloc': altloc,
+            'element': element,
+            'serial': serial,
+            'hetfield': ' ' if record_type == 'ATOM' else 'H',
+            'segid': '',
+            'conformer_id': conformer_id,
+            'charge': charge,
+            'identifier': identifier,
+            'occupancy_extended': occupancy,
+            'original_line': original_line.strip()
+        }
+
+    def _parse_extended_mcce_format(self, line: str, line_num: int) -> Dict[str, Any]:
+        """
+        Parse extended MCCE format using fixed column positions.
+
+        Format 1 (Extended MCCE):
+        ATOM      1  N   PRO 40005_000 -13.450 -11.506  21.344   1.500      -0.055      BK____M000
+
+        Uses fixed column positions for all fields, supports conformer IDs,
+        and parses charges and identifiers from variable positions after col 66.
+
+        Args:
+            line: PDB line to parse
+            line_num: Line number for error reporting
+
+        Returns:
+            Dictionary with parsed atom data or None if parsing fails
+        """
+        # Standard PDB fields (fixed positions)
+        record_type = line[0:6].strip()
+        serial = int(line[6:11].strip())
+        name = line[12:16].strip()
+        altloc = line[16:17].strip()
+        resname = line[17:20].strip()
+        chain_id = line[21:22].strip() or 'A'  # Default to 'A' if empty
+
+        # Parse coordinates (fixed positions)
+        x = float(line[30:38].strip())
+        y = float(line[38:46].strip())
+        z = float(line[46:54].strip())
+        coord = np.array([x, y, z], dtype=np.float64)
+
+        # Parse occupancy and B-factor (optional)
+        occupancy = float(line[54:60].strip()) if len(line) > 60 and line[54:60].strip() else 1.0
+        bfactor = float(line[60:66].strip()) if len(line) > 66 and line[60:66].strip() else 0.0
+
+        # Parse element - check if provided in standard PDB element field (positions 76-78)
+        element = ''
+        if len(line) > 78:
+            element = line[76:78].strip()
+
+        # Fix element type using our correction method
+        element = self._fix_element_type(name, resname, element)
+
+        # Handle extended residue ID format (e.g., A0002_000 or 40005_000)
+        resseq_field = line[22:30].strip()  # Extended field for residue sequence
+        if '_' in resseq_field:
+            # Extended format: A0002_000 or 40005_000
+            resseq_str, conformer_id = resseq_field.split('_', 1)
+            resseq = int(re.sub(r'[A-Za-z]', '', resseq_str))  # Extract numeric part
+        else:
+            # Standard format (shouldn't happen in Format 1, but handle gracefully)
+            resseq = int(line[22:26].strip())
+            conformer_id = ''
+
+        # Parse icode (underscore in extended field is not a true insertion code)
+        if '_' in resseq_field:
+            icode = ' '
+        else:
+            icode = line[26:27].strip() if len(line) > 27 else ' '
+
+        # Parse charge and identifier from region after B-factor
+        charge = 0.0
+        identifier = ''
+
+        if len(line) > 66:
+            # Extract the charge field - look for it in the region after B-factor
+            # Example: "      -0.434      BK____M000"
+            charge_and_id_region = line[66:]
+
+            # Split into potential fields
+            parts = charge_and_id_region.split()
+
+            for i, part in enumerate(parts):
+                part = part.strip()
+                if not part:
+                    continue
+
+                # Try to identify charge (should be a float, typically with . and +/-)
+                if ('.' in part or part.startswith(('+', '-'))) and not part.startswith(('BK', 'CLA', 'CHL')):
+                    try:
+                        potential_charge = float(part)
+                        # Reasonable charge range for atoms
+                        if -5.0 <= potential_charge <= 5.0:
+                            charge = potential_charge
                             continue
-                        
-                        # Try to identify charge (should be a float, typically with . and +/-)
-                        if ('.' in part or part.startswith(('+', '-'))) and not part.startswith(('BK', 'CLA', 'CHL')):
-                            try:
-                                potential_charge = float(part)
-                                # Reasonable charge range for atoms
-                                if -5.0 <= potential_charge <= 5.0:
-                                    charge = potential_charge
-                                    continue
-                            except ValueError:
-                                pass
-                        
-                        # If it's not a charge, it might be the identifier
-                        # Identifiers typically contain letters
-                        if any(c.isalpha() for c in part) and part not in ['1.00', '0.00']:
-                            identifier = part
-                
-                # Fallback: if no identifier found in parts, check end of line
-                if not identifier and len(line) > 80:
-                    # Look for identifier at the end
-                    end_part = line[80:].strip()
-                    if end_part and any(c.isalpha() for c in end_part):
-                        identifier = end_part
-                
-                return {
-                    'name': name,
-                    'fullname': f" {name:<3}",  # Formatted for BioPython
-                    'resname': resname,
-                    'chain_id': chain_id,
-                    'resseq': resseq,
-                    'icode': icode,
-                    'coord': coord,
-                    'occupancy': occupancy,
-                    'bfactor': bfactor,
-                    'altloc': altloc,
-                    'element': element,
-                    'serial': serial,
-                    'hetfield': ' ' if record_type == 'ATOM' else 'H',
-                    'segid': '',
-                    'conformer_id': conformer_id,
-                    'charge': charge,
-                    'identifier': identifier,
-                    'occupancy_extended': occupancy,
-                    'original_line': line.strip()
-                }
-                
-            except Exception as e:
-                print(f"Warning: Could not parse line {line_num + 1}: {e}")
-                return None
+                    except ValueError:
+                        pass
+
+                # If it's not a charge, it might be the identifier
+                # Identifiers typically contain letters
+                if any(c.isalpha() for c in part) and part not in ['1.00', '0.00']:
+                    identifier = part
+
+        # Fallback: if no identifier found in parts, check end of line
+        if not identifier and len(line) > 80:
+            # Look for identifier at the end
+            end_part = line[80:].strip()
+            if end_part and any(c.isalpha() for c in end_part):
+                identifier = end_part
+
+        identifier_full = identifier
+        identifier = self._normalize_identifier(identifier_full)
+        if self._is_pigment_resname(resname):
+            charge = 0.0
+
+        data = self._build_atom_dict(
+            record_type, serial, name, altloc, resname, chain_id,
+            resseq, icode, coord, occupancy, bfactor, element,
+            charge, conformer_id, identifier, line
+        )
+        data['identifier_full'] = identifier_full
+        return data
+
+    def _parse_standard_variable_format(self, line: str, line_num: int) -> Dict[str, Any]:
+        """
+        Parse standard PDB format with variable spacing using token-based approach.
+
+        Format 2 (Standard with Variable Spacing):
+        ATOM      1    N PRO 40005     -13.450 -11.506  21.344                      N   -0.055     BK
+
+        Tokens: [ATOM] [1] [N] [PRO] [40005] [-13.450] [-11.506] [21.344] [N] [-0.055] [BK]
+        Index:    0     1    2    3      4        5         6         7      8      9      10
+
+        Uses token-based parsing to handle variable whitespace. Element symbol
+        is explicitly provided. No conformer IDs in this format.
+
+        Args:
+            line: PDB line to parse
+            line_num: Line number for error reporting
+
+        Returns:
+            Dictionary with parsed atom data
+
+        Raises:
+            ValueError: If token count is not 11 or parsing fails
+        """
+        tokens = line.split()
+
+        if len(tokens) not in (10, 11):
+            raise ValueError(f"Expected 10 or 11 tokens for standard variable format, got {len(tokens)}")
+
+        # Parse tokens according to Format 2 structure
+        # Token structure (11 tokens):
+        # [ATOM] [serial] [atom] [resname] [resseq] [x] [y] [z] [element] [charge] [identifier]
+        # Token structure (10 tokens, record+serial fused):
+        # [ATOMserial] [atom] [resname] [resseq] [x] [y] [z] [element] [charge] [identifier]
+
+        if len(tokens) == 11:
+            record_type = tokens[0]
+            serial = int(tokens[1])
+            name = tokens[2]
+            resname = tokens[3]
+            resseq_token = tokens[4]
+            x = float(tokens[5])
+            y = float(tokens[6])
+            z = float(tokens[7])
+            element = tokens[8]
+            charge_token = tokens[9]
+            identifier = tokens[10]
+        else:
+            if not (tokens and tokens[0].startswith(('ATOM', 'HETATM')) and len(tokens[0]) > 6 and tokens[0][6:].isdigit()):
+                raise ValueError(f"Expected 10 or 11 tokens for standard variable format, got {len(tokens)}")
+            record_type = tokens[0][:6]
+            serial = int(tokens[0][6:])
+            name = tokens[1]
+            resname = tokens[2]
+            resseq_token = tokens[3]
+            x = float(tokens[4])
+            y = float(tokens[5])
+            z = float(tokens[6])
+            element = tokens[7]
+            charge_token = tokens[8]
+            identifier = tokens[9]
+
+        # Handle 'None' string in charge field (common for pigment atoms)
+        try:
+            charge = float(charge_token)
+        except ValueError:
+            if charge_token.strip().lower() in ['none', 'n/a', '']:
+                charge = 0.0
+            else:
+                raise
+
+        identifier_full = identifier
+        identifier = self._normalize_identifier(identifier_full)
+
+        # Build coordinate array
+        coord = np.array([x, y, z], dtype=np.float64)
+
+        # Parse chain ID and resseq from the resseq token, fall back to fixed columns
+        line_chain = line[21:22].strip()
+        chain_id, resseq = self._parse_chain_and_resseq(resseq_token, line_chain)
+
+        # Defaults for other fields not present in Format 2
+        altloc = ''         # No alternate location
+        icode = ' '         # No insertion code
+        conformer_id = self._infer_conformer_id(identifier)
+        occupancy = 1.0     # Default occupancy
+        bfactor = 0.0       # Default B-factor
+
+        # Fix element type using existing method (in case element is wrong)
+        element = self._fix_element_type(name, resname, element)
+
+        if self._is_pigment_resname(resname):
+            charge = 0.0
+
+        data = self._build_atom_dict(
+            record_type, serial, name, altloc, resname, chain_id,
+            resseq, icode, coord, occupancy, bfactor, element,
+            charge, conformer_id, identifier, line
+        )
+        data['identifier_full'] = identifier_full
+        return data
+
+    def _parse_extended_atom_line(self, line: str, line_num: int) -> Dict[str, Any]:
+        """
+        Parse an extended PDB atom line with automatic format detection.
+
+        Supports two formats:
+        Format 1 (Extended MCCE):
+            ATOM      1  N   PRO 40005_000 -13.450 -11.506  21.344   1.500      -0.055      BK____M000
+        Format 2 (Standard with variable spacing):
+            ATOM      1    N PRO 40005     -13.450 -11.506  21.344                      N   -0.055     BK
+
+        Format detection is automatic and per-line based on residue sequence field
+        and token patterns.
+
+        Args:
+            line: PDB line to parse
+            line_num: Line number for error reporting
+
+        Returns:
+            Dictionary with parsed atom data or None if parsing fails
+        """
+        if len(line) < 54:  # Minimum length for coordinates
+            return None
+
+        # Detect which format this line uses
+        format_type = self._detect_format(line)
+
+        try:
+            if format_type == 'extended_mcce':
+                return self._parse_extended_mcce_format(line, line_num)
+            else:
+                return self._parse_standard_variable_format(line, line_num)
+        except Exception as e:
+            print(f"Warning: Could not parse line {line_num + 1}: {e}")
+            return None
             
 
     def fix_element_types(self) -> int:
@@ -604,6 +935,17 @@ class ProteinStructure:
                 corrected_count += 1
         
         return corrected_count
+
+    def normalize_metadata(self) -> None:
+        """
+        Normalize metadata fields that vary between PDB formats.
+
+        This standardizes occupancy and B-factor values so extended and
+        most-occ formats can be compared consistently.
+        """
+        for atom in self.pdb.get_atoms():
+            atom.set_occupancy(1.0)
+            atom.set_bfactor(0.0)
     
     def _parse_extended_pdb_file(self, pdb_path: str) -> int:
         """
@@ -649,8 +991,17 @@ class ProteinStructure:
                         atom.q00 = atom_data['charge']  # For protein atoms, q00 = charge
                         atom.conformer_id = atom_data.get('conformer_id', '')
                         atom.identifier = atom_data.get('identifier', '')
+                        if 'identifier_full' in atom_data:
+                            atom.identifier_full = atom_data['identifier_full']
                         atom.occupancy_extended = atom_data.get('occupancy_extended', 1.0)
-                        
+
+                        # Set standard BioPython attributes (needed for GUI visualization)
+                        # If BioPython set these to None, override with parsed values
+                        if atom.occupancy is None or atom_data.get('occupancy', 1.0) != 1.0:
+                            atom.set_occupancy(atom_data.get('occupancy', 1.0))
+                        if atom.bfactor is None or atom_data.get('bfactor', 0.0) != 0.0:
+                            atom.set_bfactor(atom_data.get('bfactor', 0.0))
+
                         # Fix element type if needed
                         if 'element' in atom_data and atom_data['element']:
                             corrected_element = self._fix_element_type(
@@ -678,6 +1029,8 @@ class ProteinStructure:
                                 atom_obj.q00 = atom_data['charge']  # For protein atoms, q00 = charge
                                 atom_obj.conformer_id = atom_data.get('conformer_id', '')
                                 atom_obj.identifier = atom_data.get('identifier', '')
+                                if 'identifier_full' in atom_data:
+                                    atom_obj.identifier_full = atom_data['identifier_full']
                                 
                                 # Fix element type
                                 if 'element' in atom_data and atom_data['element']:

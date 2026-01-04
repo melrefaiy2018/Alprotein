@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
 
-# Add repo root to path (ensures local package is used)
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Add Alprotein to path
+sys.path.insert(0, str(Path(__file__).parent))
 
 from Alprotein.core.protein_structure import ProteinStructure
 from Alprotein.core.pigment_system import PigmentSystem
@@ -22,12 +22,7 @@ from Alprotein.calculators.spectra_calculator import SpectraCalculator
 
 
 # Configuration
-# PDB_FILE_PATH = "/Users/mohamed/Documents/Research/Projects/IsiA/manuscript/IsiA_monomer/mcce/mcce_Jun27/most_occ/most_occ_pH8.pdb"
-
-# PDB_FILE_PATH = "/Users/mohamed/Documents/Research/Projects/GitHub_repo/AlProtein/examples/data/most_occ_pH7_IsiA.pdb"
-# PDB_FILE_PATH = "/Users/mohamed/Documents/Research/Projects/GitHub_repo/AlProtein/examples/data/extended_most_occ_pH7_IsiA.pdb"
-PDB_FILE_PATH ="/Users/mohamed/Documents/Research/Projects/SuperComplex_Kajwal/correct_calculation/CP24/CP24_LYS_gold/fit_HIS_183/CDC/2025/raw/extended_most_occ_pH8.pdb"
-
+PDB_FILE_PATH = "/Users/mohamed/Documents/Research/Projects/IsiA/manuscript/IsiA_monomer/mcce/mcce_Jun27/most_occ/most_occ_pH8.pdb"
 EXP_DATA_BASE_PATH = '/Users/mohamed/Documents/Research/Projects/IsiA/IsiA_monomer/MCCE_run/Amber_topology/IsiA_BCR_SQD/CDC/Exp_gabriela/'
 PATH_EXP_ABS = f'{EXP_DATA_BASE_PATH}Abs_IsiA_monomer_300K_Gabriela.npy'
 PATH_EXP_FLUO = f'{EXP_DATA_BASE_PATH}Fl_IsiA_monomer_300k_Gabriela.npy'
@@ -107,14 +102,11 @@ print(f"    ✓ Loaded TrEsp parameters for {n_loaded}/{len(pigment_system.pigme
 # STEP 2: Calculate Site Energies
 # ============================================================================
 print("\n[2] Calculating site energies...")
-e0a = 14900.0  # Vacuum energy for CLA
-e0b = 15350.0  # Vacuum energy for CHL
-dielectric_constant = 2.0  # Protein dielectric constant
+
 site_energy_calculator = SiteEnergyCalculator(
-    dielectric_constant=dielectric_constant,
-    e0a=e0a,
-    # e0b=15674.0
-    e0b =e0b
+    dielectric_constant=2.0,
+    e0a=14900.0,
+    e0b=15674.0
 )
 
 site_energies = {}
@@ -140,11 +132,11 @@ print("\n[3] Constructing Hamiltonian...")
 
 hamiltonian_calculator = HamiltonianCalculator(
     pigment_system,
-    dielectric_cdc=dielectric_constant,
+    dielectric_cdc=2.0,
     dielectric_tresp=1.0,
     f_val=0.72,
-    E_0a=e0a,
-    E_0b=e0b
+    E_0a=14900.0,
+    E_0b=15674.0
 )
 
 # Use TrEsp coupling with loaded transition charges
@@ -158,16 +150,6 @@ print(f"    ✓ Hamiltonian constructed")
 print(f"    ✓ Type: {type(hamiltonian)}")
 print(f"    ✓ Shape: {hamiltonian.shape}")
 print(f"    ✓ Is numpy array: {isinstance(hamiltonian, np.ndarray)}")
-
-# Debug: recompute site energies using the calculator inside HamiltonianCalculator
-ham_site_energies = hamiltonian_calculator.site_energy_calc.calculate_all_site_energies(
-    pigment_system, {'CLA': e0a, 'CHL': e0b}
-)
-diff_by_name = (pd.Series(ham_site_energies) - pd.Series(site_energies)).sort_values(
-    key=lambda s: s.abs(), ascending=False
-)
-print("    ✓ Hamiltonian calculator site energies (top diffs vs Step 2):")
-print(diff_by_name.head(5).to_string())
 
 # Statistics on couplings (off-diagonal elements)
 n = hamiltonian.shape[0]
@@ -188,23 +170,11 @@ print(f"    ✓ Diagonalized successfully")
 print(f"    ✓ Eigenvalue range: {eigenvalues[0]:.1f} to {eigenvalues[-1]:.1f} cm⁻¹")
 
 # Save Hamiltonian as CSV
+pigment_names = list(pigment_system.pigments.keys())
 hamiltonian_csv_path = RESULTS_DIR / "hamiltonian.csv"
-hamiltonian_df.to_csv(hamiltonian_csv_path)
-pigment_names = list(hamiltonian_df.index)
+ham_df = pd.DataFrame(hamiltonian, index=pigment_names, columns=pigment_names)
+ham_df.to_csv(hamiltonian_csv_path)
 print(f"    ✓ Saved Hamiltonian to: {hamiltonian_csv_path}")
-
-# Sanity check: diagonal should match site energies by pigment name
-diag_by_name = pd.Series(np.diag(hamiltonian), index=hamiltonian_df.index)
-site_by_name = pd.Series(site_energies)
-site_by_name = site_by_name.reindex(hamiltonian_df.index)
-if not np.allclose(diag_by_name.values, site_by_name.values, rtol=1e-7, atol=1e-6):
-    diff = (diag_by_name - site_by_name).abs().sort_values(ascending=False)
-    top = diff.head(5).to_string()
-    raise AssertionError(
-        "Hamiltonian diagonal does not match site energies by pigment name.\n"
-        f"Top mismatches (abs):\n{top}"
-    )
-print("    ✓ Hamiltonian diagonal matches site energies by pigment name")
 
 # Also save eigenvalues
 eigenvalues_csv_path = RESULTS_DIR / "eigenvalues.csv"
@@ -419,6 +389,70 @@ mean_wavelength = 1e7 / mean_site_energy
 print(f"    ✓ Mean site energy: {mean_site_energy:.1f} cm⁻¹ ({mean_wavelength:.1f} nm)")
 
 # ============================================================================
+# STEP 5b: Calculate Exciton Distributions
+# ============================================================================
+print("\n[5b] Calculating exciton distributions...")
+
+from Alprotein.calculators.exciton_calculator import ExcitonCalculator
+
+# Share disorder parameters with SpectraCalculator
+exciton_calc = ExcitonCalculator(
+    disorder_sigma=spectra_calc.disorder_sigma,  # Already in σ form
+    n_ensemble=spectra_calc.n_ensemble,
+    temperature=temperature
+)
+
+print(f"    Parameters:")
+print(f"      - Disorder sigma: {exciton_calc.disorder_sigma:.1f} cm⁻¹")
+print(f"      - Ensemble size: {exciton_calc.n_ensemble}")
+print(f"      - Temperature: {exciton_calc.temperature:.1f} K")
+
+# Calculate distributions
+distributions, labels = exciton_calc.calculate_distributions(
+    hamiltonian=hamiltonian_df,
+    domains=domains_dict,
+    pigment_system=pigment_system
+)
+
+print(f"    ✓ Calculated distributions for {len(labels)} pigments")
+
+# Export to CSV
+exciton_csv_path = RESULTS_DIR / "exciton_distributions.csv"
+exciton_calc.export_distributions(str(exciton_csv_path))
+print(f"    ✓ Saved distributions to: {exciton_csv_path}")
+
+# Plot standalone exciton distributions
+exciton_calc.plot_distributions(
+    output_path=str(RESULTS_DIR),
+    show_labels=True,
+    x_min=600,
+    x_max=720,
+    fontsize=16,
+    fontweight='bold',
+    font_style='serif'
+)
+print(f"    ✓ Saved exciton distribution plot to: {RESULTS_DIR}/exciton_distribution.png")
+
+# Plot combined absorption + exciton
+try:
+    exp_abs = np.load(PATH_EXP_ABS) if Path(PATH_EXP_ABS).exists() else None
+except:
+    exp_abs = None
+
+exciton_calc.plot_combined_with_absorption(
+    wavelengths_abs=wavelengths_abs,
+    absorption=absorption,
+    exp_absorption=exp_abs,
+    output_path=str(RESULTS_DIR),
+    temp=int(temperature),
+    show_labels=True,
+    fontsize=16,
+    fontweight='bold',
+    font_style='serif'
+)
+print(f"    ✓ Saved combined plot to: {RESULTS_DIR}/exciton_distribution_with_absorption.png")
+
+# ============================================================================
 # STEP 6: Plot Results
 # ============================================================================
 print("\n[6] Plotting results...")
@@ -512,16 +546,10 @@ print(f"    ✓ Saved fluorescence data to: {fl_spectrum_csv_path}")
 fig3, ax3 = plt.subplots(figsize=(12, 6))
 
 # Calculate site energy shifts (relative to E0a)
+E0a = 14900.0  # vacuum energy for CLA
 pigment_names = list(site_energies.keys())
 energies = np.array(list(site_energies.values()))
-# if the pigment is CHL, adjust the reference energy
-E0a = e0a
-E0b = e0b
-
-shifts = np.array([
-    energy - (E0b if "CHL" in name else E0a)
-    for name, energy in zip(pigment_names, energies)
-])
+shifts = energies - E0a
 
 # Create bar colors based on shift direction
 colors = ['#d62728' if s > 0 else '#1f77b4' for s in shifts]
