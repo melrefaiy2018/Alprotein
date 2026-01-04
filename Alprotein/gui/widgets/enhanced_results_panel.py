@@ -417,6 +417,10 @@ class EnhancedResultsPanel(QWidget):
 
         main_layout.addWidget(self.tab_widget)
 
+    def set_vacuum_energies(self, e0a: float, e0b: float):
+        """Set vacuum energies for widgets"""
+        self.hamiltonian_widget.set_vacuum_energies(e0a, e0b)
+
     def display_site_energies(self, results: Dict[str, Any]):
         """Display site energy results"""
         site_energies = results.get('site_energies', {})

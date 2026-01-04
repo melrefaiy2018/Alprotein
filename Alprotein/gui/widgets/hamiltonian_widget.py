@@ -43,10 +43,19 @@ class HamiltonianWidget(QWidget):
         self.eigenvalues = None
         self.eigenvectors = None
         self.pigment_labels = None
+        self.pigment_residues = {}  # Mapping of pigment_id -> residue_name
         self.site_energies = None
         self.E0a = 14900.0  # Default vacuum energy for CLA
+        self.E0b = 15674.0  # Default vacuum energy for CHL
         self._updating_site_table = False
         self.setup_ui()
+
+    def set_vacuum_energies(self, e0a: float, e0b: float):
+        """Set vacuum energies for shift calculation"""
+        self.E0a = e0a
+        self.E0b = e0b
+        if self.hamiltonian is not None:
+            self.plot_site_energy_shifts()
 
     def setup_ui(self):
         """Setup the UI"""
@@ -257,8 +266,28 @@ class HamiltonianWidget(QWidget):
         # Get site energies from hamiltonian diagonal
         site_energies_values = np.diag(self.hamiltonian)
 
-        # Calculate shifts relative to E0a
-        shifts = site_energies_values - self.E0a
+        # Calculate shifts relative to E0a (CLA) or E0b (CHL)
+        shifts = []
+        for i, label in enumerate(self.pigment_labels):
+            energy = site_energies_values[i]
+            
+            is_chl = False
+            # Try to look up residue name first (more reliable)
+            if self.pigment_residues and label in self.pigment_residues:
+                resname = self.pigment_residues[label].upper()
+                if 'CHL' in resname:
+                    is_chl = True
+            # Fallback to label check
+            elif 'CHL' in label.upper():
+                is_chl = True
+                
+            if is_chl:
+                shifts.append(energy - self.E0b)
+            else:
+                # Default to CLA/E0a for others
+                shifts.append(energy - self.E0a)
+        
+        shifts = np.array(shifts)
 
         # Create bar colors based on shift direction
         colors = ['#d62728' if s > 0 else '#1f77b4' for s in shifts]
@@ -286,7 +315,7 @@ class HamiltonianWidget(QWidget):
                             ha='center', va=va, fontsize=8)
 
         ax.set_xlabel('Pigment (residue number)', fontsize=10, color='black')
-        ax.set_ylabel(f'Site Energy Shift (cm⁻¹) relative to E₀ = {self.E0a} cm⁻¹', fontsize=10, color='black')
+        ax.set_ylabel(f'Site Energy Shift (cm⁻¹) relative to E₀', fontsize=10, color='black')
         ax.set_title('Site Energy Shifts from CDC Calculation', fontsize=12, color='black', fontweight='bold')
         ax.set_xticks(x_pos)
         ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
@@ -313,6 +342,7 @@ class HamiltonianWidget(QWidget):
         """
         # Store site energies for plotting
         self.site_energies = dict(site_energies)
+        self.pigment_residues = dict(pigment_labels)
 
         self._updating_site_table = True
         self.site_energy_table.blockSignals(True)

@@ -5,6 +5,8 @@
 import numpy as np
 import tempfile
 import os
+import io
+from Bio.PDB import MMCIFIO
 from typing import Dict, Any, List, Tuple, Optional
 from ..core.protein_structure import ProteinStructure
 from ..core.pigment_system import PigmentSystem
@@ -33,8 +35,9 @@ class Protein3DRenderer:
         """
 
         # Prepare structure and pigment data for embedding in the HTML/JS template
-        pdb_content = self.generate_pdb_content()
-        pdb_content_escaped = pdb_content.replace('\\', '\\\\').replace('\n', '\\n').replace("'", "\\'")
+        # Use CIF format to handle extended structures and large coordinates
+        cif_content = self.generate_cif_content()
+        cif_content_escaped = cif_content.replace('\\', '\\\\').replace('\n', '\\n').replace("'", "\\'")
         pigment_info = self.get_pigment_info_js()
 
         html_template = """
@@ -254,8 +257,8 @@ class Protein3DRenderer:
                 let showPigments = true;
 
                 // Load structure
-                const pdbData = '__PDB_CONTENT__';
-                viewer.addModel(pdbData, 'pdb');
+                const cifData = '__CIF_CONTENT__';
+                viewer.addModel(cifData, 'cif');
 
                 // Initial styling
                 applyInitialStyling();
@@ -433,7 +436,7 @@ class Protein3DRenderer:
         html_template = html_template.replace("__PIGMENT_COUNT__", str(len(self.pigment_system.pigments)))
         html_template = html_template.replace("__CHAIN_COUNT__", str(len(self.pigment_system.get_chains())))
         html_template = html_template.replace("__PIGMENT_INFO__", pigment_info)
-        html_template = html_template.replace("__PDB_CONTENT__", pdb_content_escaped)
+        html_template = html_template.replace("__CIF_CONTENT__", cif_content_escaped)
         
         return html_template
     
@@ -459,6 +462,12 @@ class Protein3DRenderer:
                         # Format PDB line
                         record_type = "HETATM" if residue.id[0] != " " else "ATOM"
                         
+                        occupancy = getattr(atom, 'occupancy', 1.0)
+                        if occupancy is None: occupancy = 1.0
+                        
+                        bfactor = getattr(atom, 'bfactor', 0.0)
+                        if bfactor is None: bfactor = 0.0
+                        
                         line = (
                             f"{record_type:<6}"
                             f"{atom_counter:>5} "
@@ -472,8 +481,8 @@ class Protein3DRenderer:
                             f"{atom.coord[0]:>8.3f}"
                             f"{atom.coord[1]:>8.3f}"
                             f"{atom.coord[2]:>8.3f}"
-                            f"{getattr(atom, 'occupancy', 1.0):>6.2f}"
-                            f"{getattr(atom, 'bfactor', 0.0):>6.2f}"
+                            f"{occupancy:>6.2f}"
+                            f"{bfactor:>6.2f}"
                             f"          "
                             f"{atom.element:>2}"
                         )
@@ -483,6 +492,21 @@ class Protein3DRenderer:
         
         lines.append("END")
         return "\n".join(lines)
+    
+    def generate_cif_content(self) -> str:
+        """
+        Generate mmCIF content from the structure using Bio.PDB.MMCIFIO.
+        This handles large coordinates and atom counts better than PDB format.
+        
+        Returns:
+            mmCIF format string
+        """
+        io_obj = MMCIFIO()
+        io_obj.set_structure(self.structure.pdb)
+        
+        f = io.StringIO()
+        io_obj.save(f)
+        return f.getvalue()
     
     def get_pigment_info_js(self) -> str:
         """
