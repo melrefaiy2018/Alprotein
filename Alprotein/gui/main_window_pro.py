@@ -594,6 +594,9 @@ class MainWindowPro(QWidget):
                 e0b=15674   # Default vacuum energy for CHL
             )
 
+        # Update results panel with vacuum energies
+        self.results_panel.set_vacuum_energies(14900, 15674)
+
         # Update Hamiltonian calculator if it exists
         if self.hamiltonian_calculator:
             # Note: HamiltonianCalculator parameters are set at initialization

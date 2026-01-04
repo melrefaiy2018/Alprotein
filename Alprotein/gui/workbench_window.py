@@ -816,7 +816,7 @@ class ScientificWorkbenchWindow(QWidget):
 
         # Pass hamiltonian calculator to widget for domain building
         self.hamiltonian_widget.set_hamiltonian_calculator(self.hamiltonian_calculator)
-        self.hamiltonian_widget.E0a = e0a
+        self.hamiltonian_widget.set_vacuum_energies(e0a, e0b)
 
         # Set coupling method
         self.hamiltonian_calculator.use_dipole_coupling = params.get('coupling_method') == 'dipole'
