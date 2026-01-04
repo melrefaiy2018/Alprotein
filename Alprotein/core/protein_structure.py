@@ -47,7 +47,8 @@ class ExtendedAtom:
     
     def __repr__(self):
         """Return a string representation including atom name and charge."""
-        return f"ExtendedAtom({self.atom.name}, charge={self.charge:.3f})"
+        charge_str = f"{self.charge:.3f}" if self.charge is not None else "None"
+        return f"ExtendedAtom({self.atom.name}, charge={charge_str})"
 
 
 class ProteinStructure:
