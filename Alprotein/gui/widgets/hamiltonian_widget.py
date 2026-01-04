@@ -43,6 +43,7 @@ class HamiltonianWidget(QWidget):
         self.eigenvalues = None
         self.eigenvectors = None
         self.pigment_labels = None
+        self.pigment_residues = {}  # Mapping of pigment_id -> residue_name
         self.site_energies = None
         self.E0a = 14900.0  # Default vacuum energy for CLA
         self.E0b = 15674.0  # Default vacuum energy for CHL
@@ -269,7 +270,18 @@ class HamiltonianWidget(QWidget):
         shifts = []
         for i, label in enumerate(self.pigment_labels):
             energy = site_energies_values[i]
-            if 'CHL' in label:
+            
+            is_chl = False
+            # Try to look up residue name first (more reliable)
+            if self.pigment_residues and label in self.pigment_residues:
+                resname = self.pigment_residues[label].upper()
+                if 'CHL' in resname:
+                    is_chl = True
+            # Fallback to label check
+            elif 'CHL' in label.upper():
+                is_chl = True
+                
+            if is_chl:
                 shifts.append(energy - self.E0b)
             else:
                 # Default to CLA/E0a for others
@@ -330,6 +342,7 @@ class HamiltonianWidget(QWidget):
         """
         # Store site energies for plotting
         self.site_energies = dict(site_energies)
+        self.pigment_residues = dict(pigment_labels)
 
         self._updating_site_table = True
         self.site_energy_table.blockSignals(True)
