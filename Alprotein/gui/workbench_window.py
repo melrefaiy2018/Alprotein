@@ -37,6 +37,14 @@ from Alprotein.calculators.hamiltonian_calculator import HamiltonianCalculator
 from Alprotein.calculators.exciton_calculator import ExcitonCalculator
 
 
+class CalculationCancelled(RuntimeError):
+    """Raised inside :class:`CalculationWorker` when the user requests cancel."""
+
+    def __init__(self, calc_type: str) -> None:
+        super().__init__(f"{calc_type} was cancelled")
+        self.calc_type = calc_type
+
+
 # PRD Color Palette
 COLORS = {
     'accent_primary': '#111111',      # Primary ink
@@ -67,10 +75,24 @@ class CalculationWorker(QThread):
         self.calculator = calculator
         self.args = args
         self.kwargs = kwargs
+        self._stop_requested = False
+
+    def request_stop(self) -> None:
+        """Ask the worker to stop at the next safe boundary."""
+        self._stop_requested = True
+
+    @property
+    def stop_requested(self) -> bool:
+        return self._stop_requested
+
+    def _check_stop(self) -> None:
+        if self._stop_requested:
+            raise CalculationCancelled(self.calc_type)
 
     def run(self):
         """Run the calculation"""
         try:
+            self._check_stop()
             self.progress.emit(f"Running {self.calc_type}...", 10)
 
             if self.calc_type == "site_energies":
@@ -194,8 +216,12 @@ class CalculationWorker(QThread):
             else:
                 raise ValueError(f"Unknown calculation type: {self.calc_type}")
 
+            self._check_stop()
             self.finished.emit(self.calc_type, result)
 
+        except CalculationCancelled as e:
+            logger.info("Worker cancelled: %s", e)
+            self.error.emit(self.calc_type, "__CANCELLED__")
         except Exception as e:
             import traceback
             error_msg = f"{type(e).__name__}: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
@@ -211,6 +237,11 @@ class ScientificWorkbenchWindow(QWidget):
     # Signals
     status_message = pyqtSignal(str)
     progress_update = pyqtSignal(str, int)
+    # Emitted when a worker error or cancellation reaches the window; the
+    # surrounding app decides how to surface it (toast, modal, etc.).
+    calculation_error = pyqtSignal(str, str)  # calc_type, error_msg
+    calculation_cancelled = pyqtSignal(str)   # calc_type
+    calculation_completed = pyqtSignal(str)   # calc_type — for success toasts
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1320,39 +1351,43 @@ class ScientificWorkbenchWindow(QWidget):
                     # Complete workflow finished
                     self.run_all_flag = False
                     self.status_message.emit("Complete workflow finished successfully!")
-                    QMessageBox.information(
-                        self,
-                        "Workflow Complete",
-                        "All calculations completed successfully!\n\n"
-                        "✓ Site Energies\n"
-                        "✓ Hamiltonian\n"
-                        "✓ Absorption & Fluorescence Spectra\n"
-                        "✓ Exciton Distributions\n\n"
-                        "View results in all tabs."
-                    )
+                    self.calculation_completed.emit("workflow")
+
+            # Always emit per-step completion for the app (toast etc.)
+            self.calculation_completed.emit(calc_type)
 
         except Exception as e:
             self.run_all_flag = False  # Reset flag on error
             self.on_calculation_error(calc_type, str(e))
 
+    def cancel_current_calculation(self) -> bool:
+        """Request cancellation of the running worker.
+
+        Returns True if a worker was asked to stop, False if no worker is active.
+        """
+        worker = self.current_worker
+        if worker is None or not worker.isRunning():
+            return False
+        worker.request_stop()
+        self.status_message.emit("Cancellation requested…")
+        return True
+
     def on_calculation_error(self, calc_type: str, error_msg: str):
-        """Handle calculation error"""
+        """Handle calculation error or cancellation."""
         # Reset workflow flag if active
         self.run_all_flag = False
 
-        # Log the error with type information
-        logger.error(f"Calculation error in {calc_type}:")
-        logger.error(f"  Error message type: {type(error_msg)}")
-        logger.error(f"  Error message: {error_msg}")
+        if error_msg == "__CANCELLED__":
+            logger.info("Calculation cancelled: %s", calc_type)
+            self.tools_panel.update_result_status(calc_type, "cancelled", "Cancelled")
+            self.status_message.emit(f"{calc_type} cancelled")
+            self.calculation_cancelled.emit(calc_type)
+            return
 
+        logger.error("Calculation error in %s: %s", calc_type, error_msg)
         self.tools_panel.update_result_status(calc_type, "error", error_msg[:50])
-        self.status_message.emit(f"Error in {calc_type}: {error_msg}")
-
-        QMessageBox.critical(
-            self,
-            "Calculation Error",
-            f"Error in {calc_type}:\n{error_msg}"
-        )
+        self.status_message.emit(f"Error in {calc_type}")
+        self.calculation_error.emit(calc_type, error_msg)
 
     def on_calculation_progress(self, message: str, percentage: int):
         """Handle calculation progress"""

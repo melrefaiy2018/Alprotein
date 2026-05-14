@@ -10,15 +10,18 @@ Main application for the Alprotein Scientific Workbench with:
 
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QAction, QMessageBox,
-    QProgressBar, QLabel, QFileDialog
+    QApplication, QMainWindow, QAction, QActionGroup, QMessageBox,
+    QProgressBar, QLabel, QFileDialog, QPushButton, QShortcut
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QKeySequence, QIcon, QFont
 from pathlib import Path
 
 from Alprotein.gui.workbench_window import ScientificWorkbenchWindow
-from Alprotein.gui.styles import GLOBAL_STYLESHEET, CHART_STYLE
+from Alprotein.gui.styles import GLOBAL_STYLESHEET, CHART_STYLE  # noqa: F401 — kept for compat
+from Alprotein.gui.theme import Theme, get_theme, light_theme, dark_theme
+from Alprotein.gui.widgets.toast import ToastManager
+from Alprotein.gui.widgets.command_palette import CommandPalette
 import matplotlib.pyplot as plt
 
 class ScientificWorkbenchApp(QMainWindow):
@@ -31,50 +34,32 @@ class ScientificWorkbenchApp(QMainWindow):
         self.setWindowTitle("Alprotein Scientific Workbench")
         self.setGeometry(50, 50, 1600, 1000)
 
+        # Theme state — light by default, switchable from View menu.
+        self._theme: Theme = light_theme
+
         # Central widget
         self.workbench = ScientificWorkbenchWindow()
         self.setCentralWidget(self.workbench)
+
+        # Non-blocking notifications (anchored bottom-right of this window).
+        self.toasts = ToastManager(self, theme=self._theme)
+
+        # ⌘K command palette
+        self.palette = CommandPalette(self, theme=self._theme)
 
         # Setup UI components
         self.setup_menu_bar()
         self.setup_status_bar()
         self.setup_shortcuts()
         self.connect_signals()
+        self.register_palette_commands()
 
         # Apply styling
         self.apply_styling()
 
     def setup_menu_bar(self):
-        """Create professional menu bar"""
+        """Create professional menu bar (styling driven by the active theme)."""
         menubar = self.menuBar()
-        menubar.setStyleSheet("""
-            QMenuBar {
-                background-color: #ffffff;
-                color: #111111;
-                padding: 6px 8px;
-                font-size: 11px;
-                border-bottom: 1px solid #e1e1e1;
-            }
-            QMenuBar::item {
-                background-color: transparent;
-                padding: 6px 10px;
-            }
-            QMenuBar::item:selected {
-                background-color: #efefef;
-            }
-            QMenu {
-                background-color: #ffffff;
-                color: #111111;
-                border: 1px solid #e1e1e1;
-            }
-            QMenu::item {
-                padding: 6px 25px;
-            }
-            QMenu::item:selected {
-                background-color: #111111;
-                color: #ffffff;
-            }
-        """)
 
         # File Menu
         file_menu = menubar.addMenu("File")
@@ -233,6 +218,38 @@ class ScientificWorkbenchApp(QMainWindow):
         self.goto_table_action.triggered.connect(lambda: self.workbench.workspace_tabs.setCurrentIndex(2))
         viz_menu.addAction(self.goto_table_action)
 
+        # View Menu — theme toggle, command palette
+        view_menu = menubar.addMenu("View")
+
+        theme_menu = view_menu.addMenu("Theme")
+        self.theme_action_group = QActionGroup(self)
+        self.theme_action_group.setExclusive(True)
+
+        self.theme_light_action = QAction("Light", self, checkable=True)
+        self.theme_light_action.setChecked(self._theme.name == "light")
+        self.theme_light_action.triggered.connect(lambda: self.set_theme("light"))
+        self.theme_action_group.addAction(self.theme_light_action)
+        theme_menu.addAction(self.theme_light_action)
+
+        self.theme_dark_action = QAction("Dark", self, checkable=True)
+        self.theme_dark_action.setChecked(self._theme.name == "dark")
+        self.theme_dark_action.triggered.connect(lambda: self.set_theme("dark"))
+        self.theme_action_group.addAction(self.theme_dark_action)
+        theme_menu.addAction(self.theme_dark_action)
+
+        self.toggle_theme_action = QAction("Toggle Light/Dark", self)
+        self.toggle_theme_action.setShortcut("Ctrl+Shift+T")
+        self.toggle_theme_action.triggered.connect(self.toggle_theme)
+        view_menu.addAction(self.toggle_theme_action)
+
+        view_menu.addSeparator()
+
+        self.palette_action = QAction("Command Palette…", self)
+        self.palette_action.setShortcut("Ctrl+K")
+        self.palette_action.setStatusTip("Search and run any action")
+        self.palette_action.triggered.connect(self.palette.toggle)
+        view_menu.addAction(self.palette_action)
+
         # Help Menu
         help_menu = menubar.addMenu("Help")
 
@@ -250,77 +267,178 @@ class ScientificWorkbenchApp(QMainWindow):
         help_menu.addAction(self.about_action)
 
     def setup_status_bar(self):
-        """Create status bar with progress tracking"""
+        """Create status bar with progress tracking and cancel button."""
         statusbar = self.statusBar()
-        statusbar.setStyleSheet("""
-            QStatusBar {
-                background-color: #ffffff;
-                color: #111111;
-                border-top: 1px solid #e1e1e1;
-                font-size: 10px;
-            }
-        """)
 
-        # Status label
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet("padding: 4px 8px;")
         statusbar.addWidget(self.status_label, 1)
 
-        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximumWidth(200)
-        self.progress_bar.setMaximumHeight(16)
+        self.progress_bar.setMaximumHeight(8)
         self.progress_bar.setVisible(False)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
-                text-align: center;
-                background-color: #f3f3f3;
-            }
-            QProgressBar::chunk {
-                background-color: #111111;
-            }
-        """)
         statusbar.addPermanentWidget(self.progress_bar)
 
-        # Memory/info label
+        self.cancel_button = QPushButton("■ Cancel")
+        self.cancel_button.setProperty("class", "danger action-small")
+        self.cancel_button.setVisible(False)
+        self.cancel_button.setCursor(Qt.PointingHandCursor)
+        self.cancel_button.clicked.connect(self.cancel_current_calculation)
+        statusbar.addPermanentWidget(self.cancel_button)
+
         self.info_label = QLabel("")
-        self.info_label.setStyleSheet("padding: 4px 8px; color: #6b6b6b;")
+        self.info_label.setProperty("class", "label")
         statusbar.addPermanentWidget(self.info_label)
 
     def setup_shortcuts(self):
-        """Setup additional keyboard shortcuts"""
-        # Already setup in menu actions
-        pass
+        """Application-level shortcuts that don't have menu entries."""
+        # Cancel running calculation
+        QShortcut(QKeySequence("Ctrl+."), self, activated=self.cancel_current_calculation)
 
     def connect_signals(self):
-        """Connect workbench signals to app"""
+        """Connect workbench signals to app."""
         self.workbench.status_message.connect(self.update_status)
         self.workbench.progress_update.connect(self.update_progress)
+        self.workbench.calculation_error.connect(self.on_calculation_error)
+        self.workbench.calculation_cancelled.connect(self.on_calculation_cancelled)
+        self.workbench.calculation_completed.connect(self.on_calculation_completed)
 
     def apply_styling(self):
-        """Apply global application styling"""
-        # Apply chart styling
-        for key, value in CHART_STYLE.items():
+        """Apply the current theme stylesheet plus matplotlib rcParams."""
+        QApplication.instance().setStyleSheet(self._theme.qss())
+        for key, value in self._theme.chart_style().items():
             plt.rcParams[key] = value
 
-    def update_status(self, message: str):
-        """Update status bar message"""
-        self.status_label.setText(message)
+    # ------------------------------------------------------------------
+    # Status & progress
+    # ------------------------------------------------------------------
 
-        # Auto-clear after 5 seconds for non-error messages
-        if not message.startswith("Error"):
+    def update_status(self, message: str):
+        """Update status bar message; auto-clear after 5s for non-errors."""
+        self.status_label.setText(message)
+        if not message.lower().startswith("error"):
             QTimer.singleShot(5000, lambda: self.status_label.setText("Ready"))
 
     def update_progress(self, message: str, percentage: int):
-        """Update progress bar"""
-        if percentage > 0 and percentage < 100:
-            self.progress_bar.setVisible(True)
+        """Update progress bar; show the cancel button while running."""
+        active = 0 < percentage < 100
+        self.progress_bar.setVisible(active)
+        self.cancel_button.setVisible(active)
+        if active:
             self.progress_bar.setValue(percentage)
             self.status_label.setText(message)
+
+    # ------------------------------------------------------------------
+    # Calculation outcome routing
+    # ------------------------------------------------------------------
+
+    def cancel_current_calculation(self):
+        """Forwarded to the workbench; toast the result."""
+        if self.workbench.cancel_current_calculation():
+            self.toasts.warning("Cancelling…", "Calculation will stop at the next safe point.")
         else:
-            self.progress_bar.setVisible(False)
+            self.toasts.info("Nothing to cancel", "No calculation is running.")
+
+    def on_calculation_error(self, calc_type: str, error_msg: str):
+        """Surface worker errors as a non-blocking toast (with copyable details)."""
+        first_line = error_msg.splitlines()[0] if error_msg else "Unknown error"
+        self.progress_bar.setVisible(False)
+        self.cancel_button.setVisible(False)
+        self.toasts.error(
+            f"{calc_type} failed",
+            first_line[:200],
+            details=error_msg,
+        )
+
+    def on_calculation_cancelled(self, calc_type: str):
+        self.progress_bar.setVisible(False)
+        self.cancel_button.setVisible(False)
+        self.toasts.warning(f"{calc_type} cancelled", "")
+
+    def on_calculation_completed(self, calc_type: str):
+        # Hide progress when a top-level workflow step finishes.
+        self.progress_bar.setVisible(False)
+        self.cancel_button.setVisible(False)
+        if calc_type == "workflow":
+            self.toasts.success(
+                "Workflow complete",
+                "Site energies, Hamiltonian, spectra, and exciton distributions are ready.",
+            )
+
+    # ------------------------------------------------------------------
+    # Theme
+    # ------------------------------------------------------------------
+
+    def set_theme(self, name: str):
+        """Switch the active theme by name ("light" or "dark")."""
+        self._theme = get_theme(name)
+        self.toasts.set_theme(self._theme)
+        self.apply_styling()
+        if hasattr(self, "theme_light_action"):
+            self.theme_light_action.setChecked(self._theme.name == "light")
+            self.theme_dark_action.setChecked(self._theme.name == "dark")
+
+    def toggle_theme(self):
+        self.set_theme("dark" if self._theme.name == "light" else "light")
+
+    # ------------------------------------------------------------------
+    # Command palette
+    # ------------------------------------------------------------------
+
+    def register_palette_commands(self):
+        """Register the main actions in the ⌘K command palette."""
+        p, w = self.palette, self.workbench
+
+        p.add_command("file.open", "Open PDB…", w.on_open_project,
+                      group="File", shortcut="⌘O", keywords=["load", "structure"])
+        p.add_command("file.export", "Export data…", self.on_export_data,
+                      group="File", shortcut="⌘E")
+        p.add_command("file.export_plots", "Export plots…", self.on_export_plots,
+                      group="File", shortcut="⌘⇧E")
+        p.add_command("file.close", "Close project", self.on_close_project,
+                      group="File")
+
+        p.add_command("calc.site", "Calculate site energies",
+                      lambda: w.on_run_calculation("site_energies"),
+                      group="Calculate", shortcut="⌘1")
+        p.add_command("calc.hamiltonian", "Build Hamiltonian",
+                      lambda: w.on_run_calculation("hamiltonian"),
+                      group="Calculate", shortcut="⌘2")
+        p.add_command("calc.spectrum", "Calculate absorption spectrum",
+                      lambda: w.on_run_calculation("spectrum"),
+                      group="Calculate", shortcut="⌘3")
+        p.add_command("calc.all", "Run complete workflow",
+                      self.on_run_all_calculations,
+                      group="Calculate", shortcut="⌘⇧R")
+        p.add_command("calc.cancel", "Cancel running calculation",
+                      self.cancel_current_calculation,
+                      group="Calculate", shortcut="⌘.")
+
+        p.add_command("view.theme.light", "Theme: Light",
+                      lambda: self.set_theme("light"), group="View")
+        p.add_command("view.theme.dark", "Theme: Dark",
+                      lambda: self.set_theme("dark"), group="View")
+        p.add_command("view.theme.toggle", "Toggle theme",
+                      self.toggle_theme, group="View", shortcut="⌘⇧T")
+        p.add_command("view.reset3d", "Reset 3D view",
+                      self.on_reset_view, group="View", shortcut="⌘R")
+        p.add_command("view.tab.structure", "Go to 3D Structure",
+                      lambda: w.workspace_tabs.setCurrentIndex(0),
+                      group="View", shortcut="⌘⇧1")
+        p.add_command("view.tab.hamiltonian", "Go to Hamiltonian",
+                      lambda: w.workspace_tabs.setCurrentIndex(1),
+                      group="View", shortcut="⌘⇧2")
+        p.add_command("view.tab.spectra", "Go to Spectra",
+                      lambda: w.workspace_tabs.setCurrentIndex(2),
+                      group="View", shortcut="⌘⇧3")
+        p.add_command("view.tab.analysis", "Go to Data & Analysis",
+                      lambda: w.workspace_tabs.setCurrentIndex(3),
+                      group="View", shortcut="⌘⇧4")
+
+        p.add_command("help.quickstart", "Quick start guide",
+                      self.on_quick_start, group="Help", shortcut="F1")
+        p.add_command("help.about", "About Alprotein", self.on_about, group="Help")
 
     def on_export_data(self):
         """Export calculation data"""
@@ -505,10 +623,8 @@ def main():
     font = QFont("Segoe UI", 10)
     app.setFont(font)
 
-    # Apply global stylesheet
-    app.setStyleSheet(GLOBAL_STYLESHEET)
-
-    # Create and show main window
+    # Create and show main window — apply_styling() inside the window applies
+    # the active theme to QApplication and matplotlib.
     window = ScientificWorkbenchApp()
     window.show()
 

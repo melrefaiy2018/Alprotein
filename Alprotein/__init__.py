@@ -73,13 +73,17 @@ __email__ = "melrefaiy@example.edu, braber@example.edu, draccah@example.edu"
 __description__ = "A fast and modern package for calculating optical spectra of proteins from PDB files"
 __url__ = "https://github.com/melrefaiy2018/Alprotein-Alpha"
 
-# GUI functionality (optional import)
-try:
-    from .gui import launch_gui
-    _GUI_AVAILABLE = True
-except ImportError:
-    _GUI_AVAILABLE = False
-    launch_gui = None
+# GUI functionality — lazy: importing the GUI submodule pulls in PyQt5 which
+# isn't always wanted in headless environments. We only check that the module
+# is importable; the actual Qt application is only instantiated when the user
+# calls ``launch_gui()``.
+def launch_gui():
+    """Launch the Alprotein Scientific Workbench."""
+    from .gui import launch_gui as _launch
+    _launch()
+
+
+_GUI_AVAILABLE = True  # ``launch_gui`` always exists; failures surface at call time.
 
 # Define what gets imported with "from Alprotein import *"
 __all__ = [
@@ -154,7 +158,7 @@ def quick_calculation(pdb_file: str, pigment_configs: list = None, **kwargs):
     
     # Calculate
     calculator = HamiltonianCalculator(pigment_system)
-    hamiltonian = calculator.construct_hamiltonian(kwargs)
+    hamiltonian = calculator.construct_hamiltonian(params=kwargs)
     eigenvalues, eigenvectors = calculator.diagonalize_hamiltonian(hamiltonian)
     
     return {

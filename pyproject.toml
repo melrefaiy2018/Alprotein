@@ -8,9 +8,9 @@ version = "0.2.0"
 description = "A fast and modern package for calculating optical spectra of proteins from PDB files"
 readme = "README.md"
 authors = [
-    {name = "Mohamed Elrefaiy", email = "melrefaiy@example.edu"},
-    {name = "Bailey Raber", email = "braber@example.edu"},
-    {name = "Doran Raccah", email = "draccah@example.edu"}
+    {name = "Mohamed Elrefaiy"},
+    {name = "Bailey Raber"},
+    {name = "Doran Raccah"}
 ]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -18,26 +18,33 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: Scientific/Engineering :: Physics",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.18.0",
-    "scipy>=1.6.0",
-    "matplotlib>=3.2.0",
-    "pandas>=1.2.0",
-    "biopython>=1.78",
-    "numba>=0.50.0",
-    "tqdm>=4.50.0",
-    "h5py>=2.10.0",
+    "numpy>=1.22",
+    "scipy>=1.8",
+    "matplotlib>=3.5",
+    "pandas>=1.4",
+    "biopython>=1.79",
+    "numba>=0.56",
+    "tqdm>=4.62",
+    "h5py>=3.6",
     "seaborn>=0.13.0",
+    # GUI stack — installed by default because the workbench is the headline UX.
+    "PyQt5>=5.15",
+    "PyQtWebEngine>=5.15",
+    "pyqtgraph>=0.13",
+    "qtawesome>=1.2",
 ]
+
+[project.scripts]
+alprotein = "Alprotein.gui:main"
 
 [project.optional-dependencies]
 api = [
@@ -59,9 +66,9 @@ viz = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/melrefaiy2018/Alprotein-Alpha"
-Documentation = "https://github.com/melrefaiy2018/Alprotein-Alpha"
-"Bug Tracker" = "https://github.com/melrefaiy2018/Alprotein-Alpha/issues"
+Homepage = "https://github.com/melrefaiy2018/AlProtein"
+Documentation = "https://github.com/melrefaiy2018/AlProtein"
+"Bug Tracker" = "https://github.com/melrefaiy2018/AlProtein/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -85,7 +92,7 @@ Alprotein = ["scratch/**"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py310']
 include = '\.pyi?$'
 
 [tool.isort]
@@ -93,7 +100,7 @@ profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

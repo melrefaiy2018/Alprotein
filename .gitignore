@@ -3,3 +3,5 @@ __pycache__/
 examples/results_cp24/
 examples/results_isia/
 *.egg-info/
+.claude
+.specify

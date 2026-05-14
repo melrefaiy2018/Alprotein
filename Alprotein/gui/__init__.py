@@ -1,33 +1,24 @@
 """
-Alprotein GUI Module
+Alprotein GUI module.
 
-This module provides a graphical user interface for protein site energy calculations
-and visualization using the Alprotein package.
+The canonical entry point is the Scientific Workbench:
+
+    from Alprotein.gui import launch_gui
+    launch_gui()
+
+or via the installed console script ``alprotein``.
 """
 
-from .app import AlproteinGUI
-from .main_window import MainWindow
+from __future__ import annotations
 
-__all__ = ['AlproteinGUI', 'MainWindow', 'launch_gui']
+__all__ = ["launch_gui", "main"]
 
 
-def launch_gui():
-    """
-    Launch the Alprotein GUI application.
-    
-    This is the main entry point for the GUI interface.
-    """
-    import sys
-    from PyQt5.QtWidgets import QApplication
-    
-    # Create QApplication if it doesn't exist
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication(sys.argv)
-    
-    # Create and show the main window
-    gui = AlproteinGUI()
-    gui.show()
-    
-    # Start the event loop and exit properly
-    sys.exit(app.exec_())
+def launch_gui() -> None:
+    """Launch the Alprotein Scientific Workbench."""
+    from .workbench_app import main as _main
+    _main()
+
+
+# Alias matching the entry-point convention used in pyproject.toml
+main = launch_gui

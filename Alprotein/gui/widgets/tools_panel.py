@@ -15,6 +15,8 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QCursor
 from typing import Dict, Any
 
+from Alprotein.gui.tooltips import apply_tooltips
+
 
 class DragDropArea(QLabel):
     """Drag-and-drop area for PDB files"""
@@ -126,6 +128,15 @@ class ToolsPanel(QWidget):
 
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
+
+        # Attach rich tooltips (units, ranges, citations) to each parameter.
+        apply_tooltips({
+            "dielectric_cdc": self.dielectric_cdc,
+            "dielectric_tresp": self.dielectric_tresp,
+            "f_osc": self.f_osc,
+            "e0a": self.e0a,
+            "e0b": self.e0b,
+        })
 
     def create_project_section(self):
         """Create project information section"""
@@ -444,6 +455,9 @@ class ToolsPanel(QWidget):
             elif status == "error":
                 item['status_label'].setText(f"✗ Error\n{details}")
                 item['status_label'].setStyleSheet("color: #8b2b2b; font-weight: bold; font-size: 11px;")
+            elif status == "cancelled":
+                item['status_label'].setText("⏹ Cancelled")
+                item['status_label'].setStyleSheet("color: #8a6d1f; font-weight: bold; font-size: 11px;")
             else:
                 item['status_label'].setText("○ Pending")
                 item['status_label'].setStyleSheet("color: #6b6b6b; font-size: 11px;")
