@@ -241,23 +241,20 @@ class ScientificWorkbenchApp(QMainWindow):
         viz_menu.addSeparator()
 
         # Tab switching actions
-        self.goto_structure_action = QAction("Go to 3D Structure", self)
-        self.goto_structure_action.setShortcut("Ctrl+Shift+1")
-        self.goto_structure_action.setStatusTip("Switch to 3D Structure tab")
-        self.goto_structure_action.triggered.connect(lambda: self.workbench.workspace_tabs.setCurrentIndex(0))
-        viz_menu.addAction(self.goto_structure_action)
-
-        self.goto_dashboard_action = QAction("Go to Analysis Dashboard", self)
-        self.goto_dashboard_action.setShortcut("Ctrl+Shift+2")
-        self.goto_dashboard_action.setStatusTip("Switch to Analysis Dashboard tab")
-        self.goto_dashboard_action.triggered.connect(lambda: self.workbench.workspace_tabs.setCurrentIndex(1))
-        viz_menu.addAction(self.goto_dashboard_action)
-
-        self.goto_table_action = QAction("Go to Data Table", self)
-        self.goto_table_action.setShortcut("Ctrl+Shift+3")
-        self.goto_table_action.setStatusTip("Switch to Data Table tab")
-        self.goto_table_action.triggered.connect(lambda: self.workbench.workspace_tabs.setCurrentIndex(2))
-        viz_menu.addAction(self.goto_table_action)
+        for shortcut, label, fragment in (
+            ("Ctrl+Shift+1", "Go to 3D Structure", "3D Structure"),
+            ("Ctrl+Shift+2", "Go to Hamiltonian", "Hamiltonian"),
+            ("Ctrl+Shift+3", "Go to Spectra", "Spectra"),
+            ("Ctrl+Shift+4", "Go to Spectra (Fast)", "Spectra (Fast)"),
+            ("Ctrl+Shift+5", "Go to Data Analysis", "Data Analysis"),
+        ):
+            action = QAction(label, self)
+            action.setShortcut(shortcut)
+            action.setStatusTip(label)
+            action.triggered.connect(
+                lambda _checked=False, name=fragment: self._goto_tab_by_name(name)
+            )
+            viz_menu.addAction(action)
 
         # View Menu — theme toggle, command palette
         view_menu = menubar.addMenu("View")
@@ -482,17 +479,20 @@ class ScientificWorkbenchApp(QMainWindow):
         p.add_command("view.reset3d", "Reset 3D view",
                       self.on_reset_view, group="View", shortcut="⌘R")
         p.add_command("view.tab.structure", "Go to 3D Structure",
-                      lambda: w.workspace_tabs.setCurrentIndex(0),
+                      lambda: self._goto_tab_by_name("3D Structure"),
                       group="View", shortcut="⌘⇧1")
         p.add_command("view.tab.hamiltonian", "Go to Hamiltonian",
-                      lambda: w.workspace_tabs.setCurrentIndex(1),
+                      lambda: self._goto_tab_by_name("Hamiltonian"),
                       group="View", shortcut="⌘⇧2")
         p.add_command("view.tab.spectra", "Go to Spectra",
-                      lambda: w.workspace_tabs.setCurrentIndex(2),
+                      lambda: self._goto_tab_by_name("Spectra"),
                       group="View", shortcut="⌘⇧3")
-        p.add_command("view.tab.analysis", "Go to Data & Analysis",
-                      lambda: w.workspace_tabs.setCurrentIndex(3),
+        p.add_command("view.tab.spectra_fast", "Go to Spectra (Fast)",
+                      lambda: self._goto_tab_by_name("Spectra (Fast)"),
                       group="View", shortcut="⌘⇧4")
+        p.add_command("view.tab.analysis", "Go to Data & Analysis",
+                      lambda: self._goto_tab_by_name("Data Analysis"),
+                      group="View", shortcut="⌘⇧5")
 
         p.add_command("help.quickstart", "Quick start guide",
                       self.on_quick_start, group="Help", shortcut="F1")
@@ -515,6 +515,14 @@ class ScientificWorkbenchApp(QMainWindow):
     # ------------------------------------------------------------------
     # PDB load hook
     # ------------------------------------------------------------------
+
+    def _goto_tab_by_name(self, fragment: str) -> None:
+        """Switch to the workspace tab whose text contains ``fragment``."""
+        tabs = self.workbench.workspace_tabs
+        for i in range(tabs.count()):
+            if fragment in tabs.tabText(i):
+                tabs.setCurrentIndex(i)
+                return
 
     def on_pdb_loaded(self, file_path: str) -> None:
         """Record the loaded PDB in recents and refresh the title."""

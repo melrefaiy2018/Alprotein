@@ -29,6 +29,7 @@ from Alprotein.gui.widgets.data_table_widget import DataTableWidget
 from Alprotein.gui.widgets.protein_viewer import ProteinViewer
 from Alprotein.gui.widgets.hamiltonian_widget import HamiltonianWidget
 from Alprotein.gui.widgets.spectrum_widget import SpectrumPlotWidget
+from Alprotein.gui.widgets.spectrum_widget_fast import FastSpectrumWidget, PYQTGRAPH_AVAILABLE
 from Alprotein.gui.widgets.inspector_panel import InspectorPanel, PigmentSnapshot
 from Alprotein.gui.selection import SelectionModel
 # from Alprotein.gui.widgets.summary_cards_widget import SummaryCardsWidget
@@ -317,6 +318,16 @@ class ScientificWorkbenchWindow(QWidget):
         # Tab 2: Spectra (NEW)
         self.spectrum_widget = SpectrumPlotWidget()
         self.workspace_tabs.addTab(self.spectrum_widget, "📊 Spectra")
+
+        # Tab 2b: Fast spectra (pyqtgraph). Lives alongside the matplotlib
+        # widget while we verify parity. Once we're happy with it, the
+        # matplotlib widget gets retired and this becomes the only Spectra
+        # tab.
+        if PYQTGRAPH_AVAILABLE:
+            self.spectrum_widget_fast = FastSpectrumWidget()
+            self.workspace_tabs.addTab(self.spectrum_widget_fast, "⚡ Spectra (Fast)")
+        else:
+            self.spectrum_widget_fast = None
 
         # Tab 3: Data Analysis (ENHANCED)
         self.data_analysis_tab = self.create_data_analysis_tab()
@@ -607,6 +618,10 @@ class ScientificWorkbenchWindow(QWidget):
         self.spectrum_widget.run_spectra_requested.connect(self.on_run_spectra_requested)
         self.spectrum_widget.export_requested.connect(self.on_export_spectrum)
         self.spectrum_widget.parameters_changed.connect(self.on_spectra_parameters_changed)
+        if self.spectrum_widget_fast is not None:
+            self.spectrum_widget_fast.run_spectra_requested.connect(self.on_run_spectra_requested)
+            self.spectrum_widget_fast.export_requested.connect(self.on_export_spectrum)
+            self.spectrum_widget_fast.parameters_changed.connect(self.on_spectra_parameters_changed)
 
         # Data table signals (Tab 3)
         # Data table removed from Data Analysis tab
@@ -857,7 +872,7 @@ class ScientificWorkbenchWindow(QWidget):
             self.site_energies = {}
             self.pigment_labels = None
             self.hamiltonian_widget.set_run_enabled(True)
-            self.spectrum_widget.set_run_enabled(False)
+            self._spectrum_set_run_enabled(False)
 
             self.pdb_loaded.emit(str(self.current_file))
 
@@ -1025,6 +1040,12 @@ class ScientificWorkbenchWindow(QWidget):
         # Keep the inspector in sync after an override is applied.
         if hasattr(self, "inspector_panel"):
             self.inspector_panel.refresh()
+
+    def _spectrum_set_run_enabled(self, enabled: bool) -> None:
+        """Enable/disable the Run Spectra button on both spectrum widgets."""
+        self.spectrum_widget.set_run_enabled(enabled)
+        if self.spectrum_widget_fast is not None:
+            self.spectrum_widget_fast.set_run_enabled(enabled)
 
     def _on_domains_updated(self, domains_dict) -> None:
         """Cache the latest domain assignment so the Inspector can show it."""
@@ -1256,7 +1277,7 @@ class ScientificWorkbenchWindow(QWidget):
         """Calculate Hamiltonian in background"""
         self.tools_panel.update_result_status("hamiltonian", "running")
         self.status_message.emit("Constructing Hamiltonian...")
-        self.spectrum_widget.set_run_enabled(False)
+        self._spectrum_set_run_enabled(False)
 
         coupling_method = self.hamiltonian_widget.get_parameters().get('coupling_method', 'tresp')
         self.current_worker = CalculationWorker(
@@ -1463,7 +1484,7 @@ class ScientificWorkbenchWindow(QWidget):
                     "complete",
                     coupling_range
                 )
-                self.spectrum_widget.set_run_enabled(True)
+                self._spectrum_set_run_enabled(True)
 
                 self.status_message.emit("Hamiltonian constructed and diagonalized")
 
@@ -1485,6 +1506,13 @@ class ScientificWorkbenchWindow(QWidget):
                         wavelengths_fl=wavelengths_fl,
                         fluorescence=fluorescence
                     )
+                    if self.spectrum_widget_fast is not None:
+                        self.spectrum_widget_fast.update_spectra(
+                            wavelengths_abs=wavelengths_abs,
+                            absorption=absorption,
+                            wavelengths_fl=wavelengths_fl,
+                            fluorescence=fluorescence,
+                        )
 
                     # Find absorption peak for status
                     peak_idx = np.argmax(absorption)
@@ -1524,6 +1552,13 @@ class ScientificWorkbenchWindow(QWidget):
                         A_00=A_00,
                         A_01=A_01
                     )
+                    if self.spectrum_widget_fast is not None:
+                        self.spectrum_widget_fast.update_spectrum_with_components(
+                            wavelengths=wavelengths,
+                            spectrum=spectrum,
+                            A_00=A_00,
+                            A_01=A_01,
+                        )
 
                     peak_idx = np.argmax(spectrum)
                     peak_wl = wavelengths[peak_idx]
@@ -2180,11 +2215,14 @@ class ScientificWorkbenchWindow(QWidget):
         self.exciton_labels = None
         self.pigment_labels = None
 
-        for widget, attr in (
+        clear_targets = [
             (self.protein_viewer, "clear_structure"),
             (self.hamiltonian_widget, "clear"),
             (self.spectrum_widget, "clear"),
-        ):
+        ]
+        if self.spectrum_widget_fast is not None:
+            clear_targets.append((self.spectrum_widget_fast, "clear"))
+        for widget, attr in clear_targets:
             fn = getattr(widget, attr, None)
             if callable(fn):
                 try:
@@ -2192,7 +2230,7 @@ class ScientificWorkbenchWindow(QWidget):
                 except Exception:  # noqa: BLE001 — clearing must never raise
                     logger.exception("Could not %s on %s", attr, type(widget).__name__)
         self.hamiltonian_widget.set_run_enabled(False)
-        self.spectrum_widget.set_run_enabled(False)
+        self._spectrum_set_run_enabled(False)
 
         # Clear exciton plots
         self.exciton_distribution_plot.clear_plot()
