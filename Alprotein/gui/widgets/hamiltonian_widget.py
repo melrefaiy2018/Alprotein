@@ -35,6 +35,7 @@ class HamiltonianWidget(QWidget):
     site_energy_updated = pyqtSignal(str, float)
     parameters_changed = pyqtSignal(dict)
     domains_updated = pyqtSignal(dict)  # Emitted when domain clustering is updated
+    pigment_selected = pyqtSignal(str)  # Emitted when a table row is clicked.
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -176,6 +177,9 @@ class HamiltonianWidget(QWidget):
         )
         # Removed inline stylesheet to use global styles
         self.site_energy_table.itemChanged.connect(self.on_site_energy_item_changed)
+        self.site_energy_table.itemSelectionChanged.connect(
+            self._emit_selection_from_table
+        )
         layout.addWidget(self.site_energy_table, stretch=1)
 
         return widget
@@ -194,6 +198,36 @@ class HamiltonianWidget(QWidget):
     def set_run_enabled(self, enabled: bool):
         """Enable or disable the Run Hamiltonian button"""
         self.run_hamiltonian_btn.setEnabled(enabled)
+
+    # ------------------------------------------------------------------
+    # Cross-panel selection
+    # ------------------------------------------------------------------
+
+    def _emit_selection_from_table(self) -> None:
+        """Emit ``pigment_selected`` for the first cell in the selected row."""
+        row = self.site_energy_table.currentRow()
+        if row < 0:
+            return
+        item = self.site_energy_table.item(row, 0)
+        if item is None:
+            return
+        text = item.text().strip()
+        if text:
+            self.pigment_selected.emit(text)
+
+    def highlight_pigment(self, pigment_id: Optional[str]) -> None:
+        """Select the table row matching ``pigment_id`` (no-op if not found)."""
+        if not pigment_id:
+            self.site_energy_table.clearSelection()
+            return
+        for row in range(self.site_energy_table.rowCount()):
+            item = self.site_energy_table.item(row, 0)
+            if item is not None and item.text().strip() == pigment_id:
+                self.site_energy_table.blockSignals(True)
+                self.site_energy_table.selectRow(row)
+                self.site_energy_table.blockSignals(False)
+                self.site_energy_table.scrollToItem(item)
+                return
 
     def set_hamiltonian_calculator(self, calculator):
         """Set the hamiltonian calculator reference"""

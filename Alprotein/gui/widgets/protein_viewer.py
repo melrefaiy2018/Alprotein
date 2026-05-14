@@ -10,15 +10,32 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QLabel, QComboBox, QSlider, QCheckBox, QGroupBox,
                             QSplitter, QTextEdit, QListWidget, QListWidgetItem,
                             QFrame, QScrollArea)
-from PyQt5.QtCore import Qt, pyqtSignal, QUrl, QTimer
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QObject, QUrl, QTimer
 from PyQt5.QtGui import QFont
 # Try to import QtWebEngineWidgets, fall back to simple viewer if not available
 try:
     from PyQt5.QtWebEngineWidgets import QWebEngineView
+    from PyQt5.QtWebChannel import QWebChannel
     WEBENGINE_AVAILABLE = True
 except ImportError:
     WEBENGINE_AVAILABLE = False
     QWebEngineView = None
+    QWebChannel = None
+
+
+class _ViewerBridge(QObject):
+    """Python-side endpoint for the 3D viewer's QWebChannel.
+
+    The JS in the embedded page calls ``bridge.pigment_clicked(id)`` whenever
+    the user clicks a pigment atom. We re-emit that as a Qt signal so the
+    workbench can route it through the SelectionModel.
+    """
+
+    pigment_clicked = pyqtSignal(str)
+
+    @pyqtSlot(str)
+    def report_pigment_click(self, pigment_id: str) -> None:
+        self.pigment_clicked.emit(pigment_id)
 
 # Import Alprotein components
 from ...core.protein_structure import ProteinStructure
@@ -187,26 +204,89 @@ class ControlPanel(QWidget):
 
 class Viewer3D(QWidget):
     """3D viewer - uses web engine if available, otherwise shows placeholder"""
-    
+
+    pigment_selected = pyqtSignal(str)  # Emitted when the user clicks a pigment in 3D.
+
     def __init__(self):
         super().__init__()
         self.renderer = None
         self.temp_files = []  # Track temporary files for cleanup
-        
+        self._bridge = None
+        self._channel = None
+
         # Set minimum size
         self.setMinimumSize(600, 400)
-        
+
         # Setup layout
         layout = QVBoxLayout(self)
-        
+
         if WEBENGINE_AVAILABLE:
             # Use web engine for 3D visualization
             self.web_view = QWebEngineView()
             layout.addWidget(self.web_view)
+            self._install_web_channel()
             self.load_empty_view()
         else:
             # Fallback to simple text display
             self.setup_fallback_view(layout)
+
+    def _install_web_channel(self) -> None:
+        """Register a QWebChannel bridge so JS clicks can reach Python."""
+        if QWebChannel is None or not hasattr(self, "web_view"):
+            return
+        self._bridge = _ViewerBridge(self)
+        self._bridge.pigment_clicked.connect(self.pigment_selected.emit)
+        self._channel = QWebChannel(self)
+        self._channel.registerObject("alproteinBridge", self._bridge)
+        self.web_view.page().setWebChannel(self._channel)
+
+    def _inject_click_bridge(self) -> None:
+        """Inject a JS snippet that connects 3Dmol pigment clicks to Python.
+
+        The embedded HTML produced by :class:`Protein3DRenderer` already wires
+        a click listener that pops up a 3Dmol label. We wrap that listener so
+        it *also* calls ``bridge.report_pigment_click(pigment_id)`` via
+        QWebChannel. ``pigmentInfo`` is the JS dict produced by the renderer;
+        each clicked atom is mapped back to its pigment id by residue index.
+        """
+        if not WEBENGINE_AVAILABLE or not getattr(self, "web_view", None):
+            return
+        js = """
+        (function() {
+            if (window.alproteinBridgeReady) { return; }
+            if (typeof QWebChannel === 'undefined') {
+                var s = document.createElement('script');
+                s.src = 'qrc:///qtwebchannel/qwebchannel.js';
+                s.onload = function() { initBridge(); };
+                document.head.appendChild(s);
+            } else {
+                initBridge();
+            }
+            function initBridge() {
+                new QWebChannel(qt.webChannelTransport, function(channel) {
+                    window.alproteinBridgeObj = channel.objects.alproteinBridge;
+                    if (window.alproteinViewer && typeof pigmentInfo !== 'undefined') {
+                        // Add a SECOND click listener so the existing 3Dmol
+                        // label behaviour is preserved while Python also gets
+                        // notified.
+                        window.alproteinViewer.setClickable({}, true);
+                        window.alproteinViewer.addListener('click', function(atom) {
+                            if (!atom) return;
+                            var clickedResi = atom.resi;
+                            var pigmentKey = Object.keys(pigmentInfo).find(function(key) {
+                                return key.indexOf('_' + clickedResi + '_') !== -1;
+                            });
+                            if (pigmentKey && window.alproteinBridgeObj) {
+                                window.alproteinBridgeObj.report_pigment_click(pigmentKey);
+                            }
+                        });
+                        window.alproteinBridgeReady = true;
+                    }
+                });
+            }
+        })();
+        """
+        self.web_view.page().runJavaScript(js)
     
     def setup_fallback_view(self, layout):
         """Setup fallback view when web engine is not available"""
@@ -339,8 +419,10 @@ Alternatively, use the export function to generate:
                 # Load the HTML
                 self.web_view.setHtml(html_content)
 
-                # Once the page finishes loading, reset camera so the model is visible
+                # Once the page finishes loading, reset camera and install the
+                # Python↔JS bridge so 3Dmol clicks reach the SelectionModel.
                 def _on_loaded(ok):
+                    self._inject_click_bridge()
                     self.reset_view()
                     try:
                         self.web_view.loadFinished.disconnect(_on_loaded)

@@ -614,10 +614,20 @@ class ScientificWorkbenchWindow(QWidget):
         self.protein_viewer.pigment_selected.connect(
             lambda pid: self.selection.set_pigment(pid, source="3d")
         )
+        # Hamiltonian table → selection model
+        self.hamiltonian_widget.pigment_selected.connect(
+            lambda pid: self.selection.set_pigment(pid, source="hamiltonian")
+        )
         # selection model → inspector
         self.selection.pigment_changed.connect(
             lambda pid, _src: self.inspector_panel.set_pigment(pid)
         )
+        # selection model → 3D viewer highlight (skip if the click came from
+        # the viewer itself to avoid a feedback loop).
+        self.selection.pigment_changed.connect(self._on_selection_highlight_viewer)
+        # selection model → Hamiltonian widget highlight (no-op if widget
+        # hasn't implemented it yet).
+        self.selection.pigment_changed.connect(self._on_selection_highlight_hamiltonian)
         # Inspector → viewer focus
         self.inspector_panel.focus_requested.connect(self.protein_viewer.highlight_pigment)
         # Inspector → site-energy override (handled by existing pathway)
@@ -999,6 +1009,33 @@ class ScientificWorkbenchWindow(QWidget):
         # Keep the inspector in sync after an override is applied.
         if hasattr(self, "inspector_panel"):
             self.inspector_panel.refresh()
+
+    # ------------------------------------------------------------------
+    # Cross-panel highlighting
+    # ------------------------------------------------------------------
+
+    def _on_selection_highlight_viewer(self, pigment_id, source: str) -> None:
+        """Highlight the selected pigment in the 3D viewer."""
+        if source == "3d" or not pigment_id:
+            return  # avoid feedback loop / clear is a no-op for the viewer
+        try:
+            self.protein_viewer.highlight_pigment(pigment_id)
+        except Exception:  # noqa: BLE001 — never break selection on highlight error
+            logger.exception("Could not highlight pigment in 3D viewer")
+
+    def _on_selection_highlight_hamiltonian(self, pigment_id, source: str) -> None:
+        """Highlight the selected pigment in the Hamiltonian widget if supported."""
+        if source == "hamiltonian":
+            return
+        widget = self.hamiltonian_widget
+        for attr in ("highlight_pigment", "select_pigment", "set_selected_pigment"):
+            fn = getattr(widget, attr, None)
+            if callable(fn):
+                try:
+                    fn(pigment_id)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Hamiltonian widget %s raised", attr)
+                return
 
     # ------------------------------------------------------------------
     # Inspector wiring
