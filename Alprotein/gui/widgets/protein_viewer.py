@@ -640,6 +640,7 @@ class ProteinViewer(QWidget):
     """
     pigment_highlighted = pyqtSignal(str)  # pigment_id
     pigment_selected = pyqtSignal(str)     # proxied from the inner Viewer3D
+    exciton_scrubbed = pyqtSignal(int)     # 1-based exciton index
 
     def __init__(self):
         super().__init__()
@@ -647,6 +648,10 @@ class ProteinViewer(QWidget):
         self.pigment_system = None
         self.site_energies = None
         self.contributions = None
+        # Filled in by ``set_exciton_data`` once a Hamiltonian has been built.
+        self._eigenvectors = None       # ndarray (n_pigments, n_states)
+        self._eigenvalues = None        # ndarray (n_states,)
+        self._pigment_labels = None     # list[str]
 
         self.setup_ui()
         # Forward the inner viewer's pigment-clicked signal so the workbench
@@ -658,10 +663,37 @@ class ProteinViewer(QWidget):
         """Setup the UI layout"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         # 3D viewer
         self.viewer_3d = Viewer3D()
-        layout.addWidget(self.viewer_3d)
+        layout.addWidget(self.viewer_3d, 1)
+
+        # --- Exciton scrub bar ----------------------------------------
+        self._scrub_frame = QFrame()
+        self._scrub_frame.setProperty("class", "card")
+        self._scrub_frame.setFrameShape(QFrame.NoFrame)
+        self._scrub_frame.setEnabled(False)  # enabled when eigenvectors are set
+        scrub_layout = QHBoxLayout(self._scrub_frame)
+        scrub_layout.setContentsMargins(10, 8, 10, 8)
+        scrub_layout.setSpacing(10)
+
+        self._scrub_title = QLabel("Exciton k")
+        self._scrub_title.setStyleSheet("font-weight: 600;")
+        scrub_layout.addWidget(self._scrub_title)
+
+        self._scrub_slider = QSlider(Qt.Horizontal)
+        self._scrub_slider.setMinimum(1)
+        self._scrub_slider.setMaximum(1)
+        self._scrub_slider.setValue(1)
+        self._scrub_slider.valueChanged.connect(self._on_scrub_changed)
+        scrub_layout.addWidget(self._scrub_slider, 1)
+
+        self._scrub_readout = QLabel("k = — / —")
+        self._scrub_readout.setStyleSheet("font-family: monospace;")
+        scrub_layout.addWidget(self._scrub_readout)
+
+        layout.addWidget(self._scrub_frame, 0)
     
     # Removed connect_signals as it's no longer needed here
     
@@ -689,6 +721,73 @@ class ProteinViewer(QWidget):
     def update_domain_visualization(self, domains_dict: Dict[int, List[int]]):
         """Update visualization with domain-based coloring"""
         self.viewer_3d.update_domain_visualization(domains_dict)
+
+    # ------------------------------------------------------------------
+    # Exciton scrub
+    # ------------------------------------------------------------------
+
+    def set_exciton_data(
+        self,
+        eigenvectors,
+        eigenvalues,
+        pigment_labels: List[str],
+    ) -> None:
+        """Provide the exciton basis so the scrub bar can paint contributions."""
+        import numpy as np
+        if eigenvectors is None or pigment_labels is None:
+            self._eigenvectors = None
+            self._eigenvalues = None
+            self._pigment_labels = None
+            self._scrub_frame.setEnabled(False)
+            self._scrub_readout.setText("k = — / —")
+            return
+        self._eigenvectors = np.asarray(eigenvectors)
+        self._eigenvalues = np.asarray(eigenvalues) if eigenvalues is not None else None
+        self._pigment_labels = list(pigment_labels)
+        n_states = self._eigenvectors.shape[1]
+        # Update slider range without firing during reset.
+        self._scrub_slider.blockSignals(True)
+        self._scrub_slider.setMinimum(1)
+        self._scrub_slider.setMaximum(max(1, n_states))
+        self._scrub_slider.setValue(1)
+        self._scrub_slider.blockSignals(False)
+        self._scrub_frame.setEnabled(n_states > 1)
+        self._apply_exciton(1)
+
+    def _on_scrub_changed(self, k: int) -> None:
+        self._apply_exciton(k)
+        self.exciton_scrubbed.emit(k)
+
+    def _apply_exciton(self, k: int) -> None:
+        """Recolor pigments by ``|c_{ik}|²`` for exciton index ``k`` (1-based)."""
+        import numpy as np
+        if (
+            self._eigenvectors is None
+            or self._pigment_labels is None
+            or k < 1
+            or k > self._eigenvectors.shape[1]
+        ):
+            return
+        weights = np.abs(self._eigenvectors[:, k - 1]) ** 2
+        # Encode weights as a per-pigment "energy" in [0, 1] so we can reuse
+        # the existing generate_energy_colors path. The renderer interpolates
+        # between two colors over the given range, which is exactly the
+        # visualisation we want for a 0–1 weight.
+        pseudo_energies = {
+            label: float(weights[idx])
+            for idx, label in enumerate(self._pigment_labels)
+        }
+        # Updating ``site_energies`` here is harmless: we only mirror it for
+        # bookkeeping. The real visual update happens via the inner viewer.
+        self.site_energies = pseudo_energies
+        try:
+            self.viewer_3d.update_energy_visualization(pseudo_energies)
+        except Exception:  # noqa: BLE001
+            pass
+        readout = f"k = {k} / {self._eigenvectors.shape[1]}"
+        if self._eigenvalues is not None and k - 1 < len(self._eigenvalues):
+            readout += f"   E = {float(self._eigenvalues[k - 1]):.1f} cm⁻¹"
+        self._scrub_readout.setText(readout)
 
     def highlight_pigment(self, pigment_id: str):
         """Highlight a specific pigment"""

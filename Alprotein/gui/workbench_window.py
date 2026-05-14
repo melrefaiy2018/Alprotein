@@ -283,6 +283,10 @@ class ScientificWorkbenchWindow(QWidget):
         # Current file
         self.current_file: Optional[Path] = None
 
+        # Cached domain assignments {domain_id: [pigment_index, ...]}.
+        # Populated by ``hamiltonian_widget.domains_updated``.
+        self._domains: Dict[int, List[int]] = {}
+
         # Cross-panel selection state (3D viewer ↔ Hamiltonian ↔ Spectrum ↔ Inspector).
         self.selection = SelectionModel(self)
 
@@ -597,6 +601,7 @@ class ScientificWorkbenchWindow(QWidget):
         self.hamiltonian_widget.site_energy_updated.connect(self.on_site_energy_updated)
         self.hamiltonian_widget.parameters_changed.connect(self.on_hamiltonian_parameters_changed)
         self.hamiltonian_widget.domains_updated.connect(self.protein_viewer.update_domain_visualization)
+        self.hamiltonian_widget.domains_updated.connect(self._on_domains_updated)
 
         # Spectrum widget signals (Tab 2)
         self.spectrum_widget.run_spectra_requested.connect(self.on_run_spectra_requested)
@@ -617,6 +622,10 @@ class ScientificWorkbenchWindow(QWidget):
         # Hamiltonian table → selection model
         self.hamiltonian_widget.pigment_selected.connect(
             lambda pid: self.selection.set_pigment(pid, source="hamiltonian")
+        )
+        # Scrub bar in 3D tab → selection.exciton_k
+        self.protein_viewer.exciton_scrubbed.connect(
+            lambda k: self.selection.set_exciton(k, source="3d")
         )
         # selection model → inspector
         self.selection.pigment_changed.connect(
@@ -973,6 +982,13 @@ class ScientificWorkbenchWindow(QWidget):
 
         self.hamiltonian_widget.update_hamiltonian(self.hamiltonian, self.pigment_labels)
         self.hamiltonian_widget.update_eigenvalues(self.eigenvalues, self.eigenvectors)
+        # Make eigenvectors available for the 3D viewer's exciton scrub bar.
+        try:
+            self.protein_viewer.set_exciton_data(
+                self.eigenvectors, self.eigenvalues, self.pigment_labels
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not push exciton basis to 3D viewer")
 
         # Eigenvalue and interaction plots removed - replaced with exciton distribution plots
 
@@ -1007,6 +1023,15 @@ class ScientificWorkbenchWindow(QWidget):
         self.tools_panel.update_result_status("spectrum", "pending")
         self.status_message.emit(f"Updated site energy for {pigment_id}")
         # Keep the inspector in sync after an override is applied.
+        if hasattr(self, "inspector_panel"):
+            self.inspector_panel.refresh()
+
+    def _on_domains_updated(self, domains_dict) -> None:
+        """Cache the latest domain assignment so the Inspector can show it."""
+        try:
+            self._domains = dict(domains_dict or {})
+        except TypeError:
+            self._domains = {}
         if hasattr(self, "inspector_panel"):
             self.inspector_panel.refresh()
 
@@ -1139,6 +1164,20 @@ class ScientificWorkbenchWindow(QWidget):
             except (ValueError, IndexError):
                 pass
 
+        # Domain lookup — the cached domain map is keyed by domain id and
+        # stores pigment *indices* into ``pigment_labels``. Find the domain
+        # that contains this pigment's index, if any.
+        domain_id: Optional[int] = None
+        if self._domains and self.pigment_labels and pigment_id in self.pigment_labels:
+            idx = self.pigment_labels.index(pigment_id)
+            for did, members in self._domains.items():
+                try:
+                    if idx in members:
+                        domain_id = int(did) + 1  # 1-based for display
+                        break
+                except TypeError:  # pragma: no cover — defensive
+                    continue
+
         return PigmentSnapshot(
             pigment_id=pigment_id,
             resname=resname,
@@ -1148,7 +1187,7 @@ class ScientificWorkbenchWindow(QWidget):
             calculated_energy_cm=calculated,
             override_energy_cm=override,
             dipole_magnitude=dipole_magnitude,
-            domain=None,  # filled in once domain assignments are tracked centrally
+            domain=domain_id,
             top_exciton=top_exciton,
             top_exciton_weight=top_weight,
             top_partner_id=top_partner_id,
