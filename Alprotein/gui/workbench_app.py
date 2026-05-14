@@ -22,6 +22,9 @@ from Alprotein.gui.styles import GLOBAL_STYLESHEET, CHART_STYLE  # noqa: F401 �
 from Alprotein.gui.theme import Theme, get_theme, light_theme, dark_theme
 from Alprotein.gui.widgets.toast import ToastManager
 from Alprotein.gui.widgets.command_palette import CommandPalette
+from Alprotein.gui.project import Project, PROJECT_SUFFIX
+from Alprotein.gui.recent_files import RecentFiles
+from Alprotein.gui.undo import UndoController
 import matplotlib.pyplot as plt
 
 class ScientificWorkbenchApp(QMainWindow):
@@ -47,6 +50,12 @@ class ScientificWorkbenchApp(QMainWindow):
         # ⌘K command palette
         self.palette = CommandPalette(self, theme=self._theme)
 
+        # Project + recents + undo
+        self.recent = RecentFiles()
+        self.undo = UndoController(self)
+        self._current_project_path: "Path | None" = None
+        self._project_dirty: bool = False
+
         # Setup UI components
         self.setup_menu_bar()
         self.setup_status_bar()
@@ -69,6 +78,30 @@ class ScientificWorkbenchApp(QMainWindow):
         self.open_action.setStatusTip("Open a PDB file")
         self.open_action.triggered.connect(self.workbench.on_open_project)
         file_menu.addAction(self.open_action)
+
+        self.open_project_action = QAction("Open Project…", self)
+        self.open_project_action.setShortcut("Ctrl+Shift+O")
+        self.open_project_action.setStatusTip(f"Open a saved {PROJECT_SUFFIX} project")
+        self.open_project_action.triggered.connect(self.on_open_project_file)
+        file_menu.addAction(self.open_project_action)
+
+        # Open Recent submenu — populated on display.
+        self.recent_menu = file_menu.addMenu("Open Recent")
+        self.recent_menu.aboutToShow.connect(self._populate_recent_menu)
+
+        file_menu.addSeparator()
+
+        self.save_project_action = QAction("Save Project", self)
+        self.save_project_action.setShortcut("Ctrl+S")
+        self.save_project_action.setStatusTip("Save current session as .alproj")
+        self.save_project_action.triggered.connect(self.on_save_project)
+        file_menu.addAction(self.save_project_action)
+
+        self.save_project_as_action = QAction("Save Project As…", self)
+        self.save_project_as_action.setShortcut("Ctrl+Shift+S")
+        self.save_project_as_action.setStatusTip("Save current session to a new file")
+        self.save_project_as_action.triggered.connect(self.on_save_project_as)
+        file_menu.addAction(self.save_project_as_action)
 
         file_menu.addSeparator()
 
@@ -102,6 +135,14 @@ class ScientificWorkbenchApp(QMainWindow):
 
         # Edit Menu
         edit_menu = menubar.addMenu("Edit")
+
+        self.undo_action = self.undo.make_undo_action(self)
+        edit_menu.addAction(self.undo_action)
+
+        self.redo_action = self.undo.make_redo_action(self)
+        edit_menu.addAction(self.redo_action)
+
+        edit_menu.addSeparator()
 
         self.settings_action = QAction("Settings...", self)
         self.settings_action.setShortcut("Ctrl+,")
@@ -303,6 +344,12 @@ class ScientificWorkbenchApp(QMainWindow):
         self.workbench.calculation_error.connect(self.on_calculation_error)
         self.workbench.calculation_cancelled.connect(self.on_calculation_cancelled)
         self.workbench.calculation_completed.connect(self.on_calculation_completed)
+        self.workbench.pdb_loaded.connect(self.on_pdb_loaded)
+        # Clear the undo stack when a new PDB / project is opened to avoid
+        # cross-session commands that no longer make sense.
+        self.workbench.pdb_loaded.connect(lambda _p: self.undo.clear())
+        # Record parameter edits onto the undo stack.
+        self.workbench.parameter_committed.connect(self.on_parameter_committed)
 
     def apply_styling(self):
         """Apply the current theme stylesheet plus matplotlib rcParams."""
@@ -392,12 +439,23 @@ class ScientificWorkbenchApp(QMainWindow):
 
         p.add_command("file.open", "Open PDB…", w.on_open_project,
                       group="File", shortcut="⌘O", keywords=["load", "structure"])
+        p.add_command("file.open_project", "Open Project…", self.on_open_project_file,
+                      group="File", shortcut="⌘⇧O", keywords=["alproj"])
+        p.add_command("file.save_project", "Save Project", self.on_save_project,
+                      group="File", shortcut="⌘S")
+        p.add_command("file.save_project_as", "Save Project As…", self.on_save_project_as,
+                      group="File", shortcut="⌘⇧S")
         p.add_command("file.export", "Export data…", self.on_export_data,
                       group="File", shortcut="⌘E")
         p.add_command("file.export_plots", "Export plots…", self.on_export_plots,
                       group="File", shortcut="⌘⇧E")
         p.add_command("file.close", "Close project", self.on_close_project,
                       group="File")
+
+        p.add_command("edit.undo", "Undo", self.undo.stack.undo,
+                      group="Edit", shortcut="⌘Z")
+        p.add_command("edit.redo", "Redo", self.undo.stack.redo,
+                      group="Edit", shortcut="⌘⇧Z")
 
         p.add_command("calc.site", "Calculate site energies",
                       lambda: w.on_run_calculation("site_energies"),
@@ -439,6 +497,134 @@ class ScientificWorkbenchApp(QMainWindow):
         p.add_command("help.quickstart", "Quick start guide",
                       self.on_quick_start, group="Help", shortcut="F1")
         p.add_command("help.about", "About Alprotein", self.on_about, group="Help")
+
+    # ------------------------------------------------------------------
+    # Undo recording
+    # ------------------------------------------------------------------
+
+    def on_parameter_committed(self, key: str, old, new) -> None:
+        """Record a parameter edit as an undoable command."""
+        from Alprotein.gui.undo import ParameterEditCommand
+
+        def apply(k: str, value) -> None:
+            self.workbench.tools_panel.set_value_silently(k, value)
+
+        self.undo.push(ParameterEditCommand(apply, key, old, new))
+        self._project_dirty = True
+
+    # ------------------------------------------------------------------
+    # PDB load hook
+    # ------------------------------------------------------------------
+
+    def on_pdb_loaded(self, file_path: str) -> None:
+        """Record the loaded PDB in recents and refresh the title."""
+        path = Path(file_path)
+        if path.exists():
+            self.recent.add(path, kind="pdb")
+        # Loading a fresh PDB invalidates the active project file.
+        self._current_project_path = None
+        self._project_dirty = False
+        self.setWindowTitle(f"Alprotein — {path.name}")
+
+    # ------------------------------------------------------------------
+    # Project save / load / recents
+    # ------------------------------------------------------------------
+
+    def on_save_project(self) -> None:
+        """Save to the current project path; falls back to Save As."""
+        if self._current_project_path is None:
+            self.on_save_project_as()
+            return
+        self._save_to(self._current_project_path)
+
+    def on_save_project_as(self) -> None:
+        suggested_name = "untitled"
+        if self.workbench.current_file is not None:
+            suggested_name = self.workbench.current_file.stem
+        suggested = str(Path.home() / f"{suggested_name}{PROJECT_SUFFIX}")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Project As",
+            suggested,
+            f"Alprotein Project (*{PROJECT_SUFFIX})",
+        )
+        if not path:
+            return
+        self._save_to(Path(path))
+
+    def _save_to(self, path: Path) -> None:
+        try:
+            project = self.workbench.to_project()
+            written = project.save(path)
+        except Exception as e:  # noqa: BLE001 — surface to user
+            self.toasts.error("Save failed", str(e))
+            return
+        self._current_project_path = written
+        self._project_dirty = False
+        self.recent.add(written, kind="project")
+        self.setWindowTitle(f"Alprotein — {written.name}")
+        self.toasts.success("Project saved", str(written))
+
+    def on_open_project_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Project",
+            str(Path.home()),
+            f"Alprotein Project (*{PROJECT_SUFFIX});;All files (*)",
+        )
+        if path:
+            self.load_project_path(Path(path))
+
+    def load_project_path(self, path: Path) -> None:
+        """Open the project at ``path``."""
+        try:
+            project = Project.load(path)
+            self.workbench.apply_project(project)
+        except Exception as e:  # noqa: BLE001 — friendly toast instead of crash
+            self.toasts.error("Could not open project", str(e), details=repr(e))
+            return
+        self._current_project_path = path
+        self._project_dirty = False
+        self.recent.add(path, kind="project")
+        self.setWindowTitle(f"Alprotein — {path.name}")
+        self.toasts.success("Project opened", project.name or path.name)
+
+    def _populate_recent_menu(self) -> None:
+        """Rebuild the Open Recent submenu when it's about to display."""
+        self.recent_menu.clear()
+        entries = self.recent.entries()
+        if not entries:
+            empty = self.recent_menu.addAction("(no recent files)")
+            empty.setEnabled(False)
+            return
+        for entry in entries:
+            label = Path(entry.path).name
+            if entry.kind == "project":
+                label = f"📦 {label}"
+            else:
+                label = f"🧬 {label}"
+            action = self.recent_menu.addAction(label)
+            action.setStatusTip(entry.path)
+            entry_path, entry_kind = entry.path, entry.kind  # capture for closure
+            action.triggered.connect(lambda _checked, p=entry_path, k=entry_kind: self._open_recent(p, k))
+        self.recent_menu.addSeparator()
+        clear = self.recent_menu.addAction("Clear Recent")
+        clear.triggered.connect(self._clear_recent)
+
+    def _open_recent(self, path: str, kind: str) -> None:
+        target = Path(path)
+        if not target.exists():
+            self.toasts.warning("File missing", f"{target.name} could not be found.")
+            return
+        if kind == "project":
+            self.load_project_path(target)
+        else:
+            self.workbench.load_pdb_file(str(target))
+            self.recent.add(target, kind="pdb")
+
+    def _clear_recent(self) -> None:
+        self.recent.clear()
+        self.toasts.info("Recent files cleared", "")
 
     def on_export_data(self):
         """Export calculation data"""

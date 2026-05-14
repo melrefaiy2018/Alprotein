@@ -242,6 +242,9 @@ class ScientificWorkbenchWindow(QWidget):
     calculation_error = pyqtSignal(str, str)  # calc_type, error_msg
     calculation_cancelled = pyqtSignal(str)   # calc_type
     calculation_completed = pyqtSignal(str)   # calc_type — for success toasts
+    pdb_loaded = pyqtSignal(str)              # absolute file path
+    # Forwarded from the Tools panel for undo recording.
+    parameter_committed = pyqtSignal(str, object, object)  # key, old, new
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -571,6 +574,8 @@ class ScientificWorkbenchWindow(QWidget):
         self.tools_panel.parameters_changed.connect(self.on_parameters_changed)
         self.tools_panel.run_calculation.connect(self.on_run_calculation)
         self.tools_panel.view_results.connect(self.on_view_results)
+        # Forward parameter edits so the app can push undo commands.
+        self.tools_panel.parameter_committed.connect(self.parameter_committed.emit)
 
         # Hamiltonian widget signals (Tab 1)
         self.hamiltonian_widget.run_hamiltonian_requested.connect(self.on_run_hamiltonian_requested)
@@ -808,13 +813,12 @@ class ScientificWorkbenchWindow(QWidget):
             self.hamiltonian_widget.set_run_enabled(True)
             self.spectrum_widget.set_run_enabled(False)
 
+            self.pdb_loaded.emit(str(self.current_file))
+
         except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Load Error",
-                f"Failed to load PDB file:\n{str(e)}"
-            )
+            logger.exception("PDB load failed for %s", file_path)
             self.status_message.emit(f"Error: {str(e)}")
+            self.calculation_error.emit("load_pdb", str(e))
 
     def initialize_calculators(self, params: Dict[str, Any]):
         """Initialize all calculators with parameters"""
@@ -1799,6 +1803,144 @@ class ScientificWorkbenchWindow(QWidget):
             import traceback
             traceback.print_exc()
 
+    # ------------------------------------------------------------------
+    # Project serialization
+    # ------------------------------------------------------------------
+
+    def to_project(self):
+        """Build a :class:`~Alprotein.gui.project.Project` from current state."""
+        from Alprotein.gui.project import Project
+
+        name = self.current_file.stem if self.current_file else "Untitled"
+        pdb_text = ""
+        if self.current_file and Path(self.current_file).exists():
+            try:
+                pdb_text = Path(self.current_file).read_text(encoding="utf-8")
+            except OSError as e:
+                logger.warning("Could not embed PDB text from %s: %s", self.current_file, e)
+
+        view_state = {
+            "wavelength_min_nm": self.wavelength_min_nm,
+            "wavelength_max_nm": self.wavelength_max_nm,
+            "current_tab": self.workspace_tabs.currentIndex(),
+        }
+
+        return Project(
+            name=name,
+            source_pdb_path=str(self.current_file) if self.current_file else "",
+            pdb_text=pdb_text,
+            parameters=dict(self.get_all_parameters()),
+            site_energy_overrides=dict(self.site_energy_overrides),
+            vacuum_energies=dict(self.vacuum_energies),
+            site_energies=dict(self.site_energies),
+            calculated_site_energies=dict(self.calculated_site_energies),
+            pigment_labels=list(self.pigment_labels) if self.pigment_labels else None,
+            hamiltonian=self.hamiltonian,
+            eigenvalues=self.eigenvalues,
+            eigenvectors=self.eigenvectors,
+            spectrum_data=dict(self.spectrum_data) if self.spectrum_data else None,
+            exciton_distributions=(
+                dict(self.exciton_distributions) if self.exciton_distributions else None
+            ),
+            exciton_labels=list(self.exciton_labels) if self.exciton_labels else None,
+            view_state=view_state,
+        )
+
+    def apply_project(self, project) -> None:
+        """Restore the workbench from a :class:`Project` instance.
+
+        Loads the embedded PDB, applies parameters, then restores any cached
+        numerical results. The Hamiltonian is *not* re-computed — we trust the
+        stored arrays.
+        """
+        from Alprotein.gui.project import Project  # late import for typing only
+        if not isinstance(project, Project):
+            raise TypeError(f"Expected Project, got {type(project).__name__}")
+
+        # Reset prior session before restoring.
+        self.clear_all_data()
+
+        # 1. Write the embedded PDB to a temp location and load it.
+        if not project.pdb_text:
+            raise ValueError("Project has no embedded PDB text")
+        import tempfile
+
+        tmp_dir = Path(tempfile.gettempdir()) / "alprotein_projects"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        pdb_path = tmp_dir / f"{project.name or 'project'}.pdb"
+        pdb_path.write_text(project.pdb_text, encoding="utf-8")
+        self.load_pdb_file(str(pdb_path))
+
+        # 2. Restore parameters via the tools panel where possible.
+        params = project.parameters or {}
+        if params:
+            tp = self.tools_panel
+            if "dielectric_cdc" in params:
+                tp.dielectric_cdc.setValue(float(params["dielectric_cdc"]))
+            if "dielectric_tresp" in params:
+                tp.dielectric_tresp.setValue(float(params["dielectric_tresp"]))
+            if "oscillator_strength" in params:
+                tp.f_osc.setValue(float(params["oscillator_strength"]))
+            if "e0a" in params:
+                tp.e0a.setValue(float(params["e0a"]))
+            if "e0b" in params:
+                tp.e0b.setValue(float(params["e0b"]))
+
+        # 3. Restore numerical results without rerunning calculators.
+        if project.hamiltonian is not None:
+            self.hamiltonian = np.asarray(project.hamiltonian)
+        if project.eigenvalues is not None:
+            self.eigenvalues = np.asarray(project.eigenvalues)
+        if project.eigenvectors is not None:
+            self.eigenvectors = np.asarray(project.eigenvectors)
+        if project.site_energies:
+            self.site_energies = dict(project.site_energies)
+        if project.calculated_site_energies:
+            self.calculated_site_energies = dict(project.calculated_site_energies)
+        if project.site_energy_overrides:
+            self.site_energy_overrides = dict(project.site_energy_overrides)
+        if project.vacuum_energies:
+            self.vacuum_energies = dict(project.vacuum_energies)
+        if project.pigment_labels:
+            self.pigment_labels = list(project.pigment_labels)
+        if project.spectrum_data:
+            self.spectrum_data = {k: np.asarray(v) for k, v in project.spectrum_data.items()}
+        if project.exciton_distributions:
+            self.exciton_distributions = {
+                k: np.asarray(v) for k, v in project.exciton_distributions.items()
+            }
+        if project.exciton_labels:
+            self.exciton_labels = list(project.exciton_labels)
+
+        # 4. Restore view state.
+        view = project.view_state or {}
+        try:
+            if "wavelength_min_nm" in view:
+                self.wavelength_min_nm = float(view["wavelength_min_nm"])
+            if "wavelength_max_nm" in view:
+                self.wavelength_max_nm = float(view["wavelength_max_nm"])
+            if "current_tab" in view:
+                self.workspace_tabs.setCurrentIndex(int(view["current_tab"]))
+        except (TypeError, ValueError):
+            logger.warning("Ignoring malformed view_state in project")
+
+        # 5. Refresh derived displays.
+        for key, has_data in (
+            ("site_energies", bool(self.site_energies)),
+            ("hamiltonian", self.hamiltonian is not None),
+            ("spectrum", self.spectrum_data is not None),
+            ("exciton_distribution", self.exciton_distributions is not None),
+        ):
+            self.tools_panel.update_result_status(key, "complete" if has_data else "pending")
+
+        if self.hamiltonian is not None:
+            try:
+                self.refresh_hamiltonian_displays(update_interactions=False)
+            except Exception:  # noqa: BLE001 — restoration must not crash the load
+                logger.exception("Could not refresh Hamiltonian display after project restore")
+
+        self.status_message.emit(f"Project '{project.name}' restored")
+
     def clear_all_data(self):
         """Clear all loaded data and results"""
         self.pigment_system = None
@@ -1814,10 +1956,17 @@ class ScientificWorkbenchWindow(QWidget):
         self.exciton_labels = None
         self.pigment_labels = None
 
-        # self.data_table.clear_data()  # Data table removed
-        self.protein_viewer.clear_structure()
-        self.hamiltonian_widget.clear()
-        self.spectrum_widget.clear()
+        for widget, attr in (
+            (self.protein_viewer, "clear_structure"),
+            (self.hamiltonian_widget, "clear"),
+            (self.spectrum_widget, "clear"),
+        ):
+            fn = getattr(widget, attr, None)
+            if callable(fn):
+                try:
+                    fn()
+                except Exception:  # noqa: BLE001 — clearing must never raise
+                    logger.exception("Could not %s on %s", attr, type(widget).__name__)
         self.hamiltonian_widget.set_run_enabled(False)
         self.spectrum_widget.set_run_enabled(False)
 

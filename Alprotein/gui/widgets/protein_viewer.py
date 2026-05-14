@@ -614,6 +614,22 @@ class ProteinViewer(QWidget):
         if self.viewer_3d:
             self.viewer_3d.reset_view()
     
+    def clear_structure(self):
+        """Drop the currently-loaded structure and clear the 3D scene."""
+        self.structure = None
+        self.pigment_system = None
+        if self.viewer_3d is not None:
+            # The underlying Viewer3D may expose a fine-grained clear; if not
+            # we fall back to clearing the WebEngine page so it shows an empty
+            # canvas.
+            clear_fn = getattr(self.viewer_3d, "clear_structure", None)
+            if callable(clear_fn):
+                clear_fn()
+            else:
+                web_view = getattr(self.viewer_3d, "web_view", None)
+                if web_view is not None and hasattr(web_view, "setHtml"):
+                    web_view.setHtml("")
+
     def cleanup(self):
         """Clean up resources"""
         if self.viewer_3d:

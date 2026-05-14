@@ -78,6 +78,9 @@ class DragDropArea(QLabel):
         self.file_dropped.emit("")  # Signal to open file dialog
 
 
+_PARAM_KEYS = ("dielectric_cdc", "dielectric_tresp", "oscillator_strength", "e0a", "e0b")
+
+
 class ToolsPanel(QWidget):
     """
     Right sidebar tools panel for the scientific workbench
@@ -90,6 +93,11 @@ class ToolsPanel(QWidget):
     run_calculation = pyqtSignal(str)  # calculation type
     view_results = pyqtSignal(str)  # result type
     file_dropped = pyqtSignal(str)  # PDB file path from drag-drop
+    # Emitted whenever a user-driven edit produces a new value.
+    # Carries (parameter_key, old_value, new_value) so the host can record
+    # an undoable command. Programmatic ``setValue`` calls *don't* emit
+    # this — wrap them in :meth:`set_value_silently` instead.
+    parameter_committed = pyqtSignal(str, object, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -128,6 +136,12 @@ class ToolsPanel(QWidget):
 
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
+
+        # Snapshot of the last committed parameter values, used to compute
+        # old/new diffs for ``parameter_committed``. Must be initialised once
+        # all spinboxes exist so we capture their constructor defaults.
+        self._silent = False
+        self._last_committed = dict(self.get_parameters())
 
         # Attach rich tooltips (units, ranges, citations) to each parameter.
         apply_tooltips({
@@ -417,15 +431,42 @@ class ToolsPanel(QWidget):
         return item
 
     def on_settings_changed(self):
-        """Emit settings change signal"""
-        params = {
-            'dielectric_cdc': self.dielectric_cdc.value(),
-            'dielectric_tresp': self.dielectric_tresp.value(),
-            'oscillator_strength': self.f_osc.value(),
-            'e0a': self.e0a.value(),
-            'e0b': self.e0b.value()
-        }
+        """Emit settings change signal."""
+        params = self.get_parameters()
+        # Detect which key changed against the last committed snapshot and
+        # surface old/new so callers can record an undo command.
+        if hasattr(self, "_last_committed") and not getattr(self, "_silent", False):
+            for key in _PARAM_KEYS:
+                old = self._last_committed.get(key)
+                new = params.get(key)
+                if old != new:
+                    self.parameter_committed.emit(key, old, new)
+        self._last_committed = dict(params)
         self.parameters_changed.emit(params)
+
+    def set_value_silently(self, key: str, value: float) -> None:
+        """Programmatically set a parameter without emitting ``parameter_committed``.
+
+        Used by Undo/Redo and project restore — they update the widget but
+        must not record themselves as new user edits.
+        """
+        widget = {
+            "dielectric_cdc": getattr(self, "dielectric_cdc", None),
+            "dielectric_tresp": getattr(self, "dielectric_tresp", None),
+            "oscillator_strength": getattr(self, "f_osc", None),
+            "e0a": getattr(self, "e0a", None),
+            "e0b": getattr(self, "e0b", None),
+        }.get(key)
+        if widget is None:
+            return
+        self._silent = True
+        try:
+            widget.setValue(float(value))
+            # Refresh the committed-snapshot so we don't emit a stale diff
+            # on the next user edit.
+            self._last_committed = dict(self.get_parameters())
+        finally:
+            self._silent = False
 
     def update_project_info(self, name, pigments, atoms, validated):
         """Update project information display"""
