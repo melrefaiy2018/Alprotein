@@ -557,22 +557,26 @@ class ProteinViewer(QWidget):
     Main 3D protein viewer widget combining controls and visualization
     """
     pigment_highlighted = pyqtSignal(str)  # pigment_id
-    
+    pigment_selected = pyqtSignal(str)     # proxied from the inner Viewer3D
+
     def __init__(self):
         super().__init__()
         self.structure = None
         self.pigment_system = None
         self.site_energies = None
         self.contributions = None
-        
+
         self.setup_ui()
-        # No direct signal connections here anymore, handled by MainWindow
-    
+        # Forward the inner viewer's pigment-clicked signal so the workbench
+        # can drive a shared SelectionModel from one place.
+        if hasattr(self.viewer_3d, "pigment_selected"):
+            self.viewer_3d.pigment_selected.connect(self.pigment_selected.emit)
+
     def setup_ui(self):
         """Setup the UI layout"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # 3D viewer
         self.viewer_3d = Viewer3D()
         layout.addWidget(self.viewer_3d)

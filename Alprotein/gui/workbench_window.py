@@ -29,6 +29,8 @@ from Alprotein.gui.widgets.data_table_widget import DataTableWidget
 from Alprotein.gui.widgets.protein_viewer import ProteinViewer
 from Alprotein.gui.widgets.hamiltonian_widget import HamiltonianWidget
 from Alprotein.gui.widgets.spectrum_widget import SpectrumPlotWidget
+from Alprotein.gui.widgets.inspector_panel import InspectorPanel, PigmentSnapshot
+from Alprotein.gui.selection import SelectionModel
 # from Alprotein.gui.widgets.summary_cards_widget import SummaryCardsWidget
 from Alprotein.core.pigment_system import PigmentSystem
 from Alprotein.core.protein_structure import ProteinStructure
@@ -281,6 +283,9 @@ class ScientificWorkbenchWindow(QWidget):
         # Current file
         self.current_file: Optional[Path] = None
 
+        # Cross-panel selection state (3D viewer ↔ Hamiltonian ↔ Spectrum ↔ Inspector).
+        self.selection = SelectionModel(self)
+
         self.setup_ui()
         self.connect_signals()
 
@@ -313,17 +318,25 @@ class ScientificWorkbenchWindow(QWidget):
         self.data_analysis_tab = self.create_data_analysis_tab()
         self.workspace_tabs.addTab(self.data_analysis_tab, "📋 Data Analysis")
 
-        # LEFT: Tools Panel (sidebar) - MOVED TO LEFT per PRD
+        # LEFT: Tools Panel
         self.tools_panel = ToolsPanel()
         main_splitter.addWidget(self.tools_panel)
 
-        # RIGHT: Workspace tabs - MOVED TO RIGHT per PRD
+        # CENTER: Workspace tabs
         main_splitter.addWidget(self.workspace_tabs)
 
-        # Set proportions: 20% tools (left), 80% workspace (right)
-        main_splitter.setSizes([300, 1200])
-        main_splitter.setStretchFactor(0, 1)  # Tools panel (left) - lower stretch
-        main_splitter.setStretchFactor(1, 4)  # Workspace (right) - higher stretch
+        # RIGHT: Inspector sidebar (driven by SelectionModel; host wired below)
+        self.inspector_panel = InspectorPanel()
+        self.inspector_panel.set_host(self)
+        main_splitter.addWidget(self.inspector_panel)
+
+        # Proportions: tools | workspace | inspector
+        main_splitter.setSizes([300, 1100, 320])
+        main_splitter.setStretchFactor(0, 0)
+        main_splitter.setStretchFactor(1, 1)
+        main_splitter.setStretchFactor(2, 0)
+        main_splitter.setCollapsible(0, False)
+        main_splitter.setCollapsible(2, True)  # Inspector can be collapsed.
 
         main_layout.addWidget(main_splitter)
 
@@ -595,6 +608,20 @@ class ScientificWorkbenchWindow(QWidget):
         # self.data_table.row_selected.connect(self.on_pigment_selected)
         # self.data_table.export_requested.connect(self.on_export_table)
         # self.data_table.plot_requested.connect(self.on_plot_from_table)
+
+        # --- Cross-panel selection --------------------------------------
+        # 3D viewer → selection model
+        self.protein_viewer.pigment_selected.connect(
+            lambda pid: self.selection.set_pigment(pid, source="3d")
+        )
+        # selection model → inspector
+        self.selection.pigment_changed.connect(
+            lambda pid, _src: self.inspector_panel.set_pigment(pid)
+        )
+        # Inspector → viewer focus
+        self.inspector_panel.focus_requested.connect(self.protein_viewer.highlight_pigment)
+        # Inspector → site-energy override (handled by existing pathway)
+        self.inspector_panel.override_changed.connect(self._on_inspector_override_changed)
 
     def on_file_dropped(self, file_path: str):
         """Handle file drop from drag-and-drop area"""
@@ -969,6 +996,127 @@ class ScientificWorkbenchWindow(QWidget):
 
         self.tools_panel.update_result_status("spectrum", "pending")
         self.status_message.emit(f"Updated site energy for {pigment_id}")
+        # Keep the inspector in sync after an override is applied.
+        if hasattr(self, "inspector_panel"):
+            self.inspector_panel.refresh()
+
+    # ------------------------------------------------------------------
+    # Inspector wiring
+    # ------------------------------------------------------------------
+
+    def _on_inspector_override_changed(self, pigment_id: str, new_value) -> None:
+        """Apply or reset a site-energy override from the inspector panel."""
+        baseline = self.calculated_site_energies.get(pigment_id)
+        if new_value is None:
+            # Reset: drop the override and restore the calculated value.
+            if baseline is None:
+                self.status_message.emit(
+                    f"No calculated value for {pigment_id} to reset to"
+                )
+                return
+            new_value = baseline
+        try:
+            new_value = float(new_value)
+        except (TypeError, ValueError):
+            return
+        self.on_site_energy_updated(pigment_id, new_value)
+
+    def snapshot_for_pigment(self, pigment_id: str):
+        """Build a :class:`PigmentSnapshot` for the Inspector."""
+        if not self.pigment_system or pigment_id not in self.pigment_system.pigments:
+            return None
+        pigment = self.pigment_system.pigments[pigment_id]
+
+        resname = ""
+        chain = ""
+        resi = ""
+        try:
+            resname = pigment.get_resname() or ""
+        except Exception:  # noqa: BLE001 — diagnostic display only
+            pass
+        for attr_chain in ("chain_id", "chain"):
+            value = getattr(pigment, attr_chain, None)
+            if value:
+                chain = str(value)
+                break
+        for attr_resi in ("resi", "resnum", "residue_number"):
+            value = getattr(pigment, attr_resi, None)
+            if value is not None:
+                resi = str(value)
+                break
+
+        site_energy = self.site_energies.get(pigment_id)
+        calculated = self.calculated_site_energies.get(pigment_id)
+        override = self.site_energy_overrides.get(pigment_id)
+
+        dipole_magnitude: Optional[float] = None
+        try:
+            mu = getattr(pigment, "dipole_moment", None)
+            if mu is None:
+                mu_fn = getattr(pigment, "get_dipole_moment", None)
+                if callable(mu_fn):
+                    mu = mu_fn()
+            if mu is not None:
+                dipole_magnitude = float(np.linalg.norm(np.asarray(mu)))
+        except Exception:  # noqa: BLE001
+            dipole_magnitude = None
+
+        # Top exciton contribution: argmax of |c_{ik}|² over excitons k.
+        top_exciton: Optional[int] = None
+        top_weight: Optional[float] = None
+        if (
+            self.eigenvectors is not None
+            and self.pigment_labels
+            and pigment_id in self.pigment_labels
+        ):
+            try:
+                idx = self.pigment_labels.index(pigment_id)
+                weights = np.abs(self.eigenvectors[idx, :]) ** 2
+                k = int(np.argmax(weights))
+                top_exciton = k + 1  # 1-based for display
+                top_weight = float(weights[k])
+            except (ValueError, IndexError):  # pragma: no cover — defensive
+                pass
+
+        # Strongest off-diagonal coupling partner.
+        top_partner_id: Optional[str] = None
+        top_partner_coupling: Optional[float] = None
+        if (
+            self.hamiltonian is not None
+            and self.pigment_labels
+            and pigment_id in self.pigment_labels
+        ):
+            try:
+                ham = (
+                    self.hamiltonian.values
+                    if hasattr(self.hamiltonian, "values")
+                    else np.asarray(self.hamiltonian)
+                )
+                idx = self.pigment_labels.index(pigment_id)
+                row = np.array(ham[idx], dtype=float)
+                row[idx] = 0.0
+                j_idx = int(np.argmax(np.abs(row)))
+                if np.abs(row[j_idx]) > 0:
+                    top_partner_id = self.pigment_labels[j_idx]
+                    top_partner_coupling = float(row[j_idx])
+            except (ValueError, IndexError):
+                pass
+
+        return PigmentSnapshot(
+            pigment_id=pigment_id,
+            resname=resname,
+            chain=chain,
+            resi=resi,
+            site_energy_cm=site_energy,
+            calculated_energy_cm=calculated,
+            override_energy_cm=override,
+            dipole_magnitude=dipole_magnitude,
+            domain=None,  # filled in once domain assignments are tracked centrally
+            top_exciton=top_exciton,
+            top_exciton_weight=top_weight,
+            top_partner_id=top_partner_id,
+            top_partner_coupling=top_partner_coupling,
+        )
 
     def on_run_calculation(self, calc_type: str):
         """Run a calculation in background"""
