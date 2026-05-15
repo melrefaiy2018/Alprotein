@@ -407,6 +407,16 @@ class HamiltonianWidget(QWidget):
         self.site_energy_table.blockSignals(False)
         self.site_energy_updated.emit(pig_id, energy)
 
+    _domain_cutoff_cm: float = 20.0
+
+    def set_domain_cutoff(self, cutoff_cm: float) -> None:
+        """Update the |J|-cutoff used for domain clustering and recompute."""
+        try:
+            self._domain_cutoff_cm = float(cutoff_cm)
+        except (TypeError, ValueError):
+            return
+        self.update_domains()
+
     def update_domains(self):
         """Update domain clustering based on cutoff"""
         if self.hamiltonian is None:
@@ -416,8 +426,7 @@ class HamiltonianWidget(QWidget):
         if hasattr(self.hamiltonian, 'values'):
             self.hamiltonian = self.hamiltonian.values
 
-        # Use fixed cutoff of 20 cm⁻¹
-        cutoff = 20.0
+        cutoff = float(self._domain_cutoff_cm)
 
         try:
             # Use build_domains method from HamiltonianCalculator if available

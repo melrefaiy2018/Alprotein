@@ -18,13 +18,17 @@ from typing import Dict, Optional, Protocol
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QDoubleSpinBox,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -66,6 +70,10 @@ class InspectorPanel(QWidget):
 
     focus_requested = pyqtSignal(str)               # pigment_id — focus camera
     override_changed = pyqtSignal(str, object)      # pigment_id, new_value | None
+    notebook_edited = pyqtSignal(str)               # full notebook text
+    color_mode_changed = pyqtSignal(str)            # "pigment_type" | "site_energy" | "exciton" | "domain"
+    domain_cutoff_changed = pyqtSignal(int)         # cm⁻¹, integer-valued for slider
+    domain_focus_requested = pyqtSignal(int)        # 1-based domain id
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -174,7 +182,153 @@ class InspectorPanel(QWidget):
         ov.addLayout(row)
 
         v.addWidget(override_card)
+
+        # --- Live View Tools card ----------------------------------------
+        view_tools_card = QGroupBox("🎚 Live View Tools")
+        view_tools_card.setProperty("class", "card")
+        vt = QVBoxLayout(view_tools_card)
+        vt.setSpacing(6)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Color by"))
+        self._color_mode = QComboBox()
+        self._color_mode.addItem("Pigment type", "pigment_type")
+        self._color_mode.addItem("Site energy", "site_energy")
+        self._color_mode.addItem("|c|² of exciton k", "exciton")
+        self._color_mode.addItem("Domain", "domain")
+        self._color_mode.currentIndexChanged.connect(
+            lambda _i: self.color_mode_changed.emit(self._color_mode.currentData())
+        )
+        row.addWidget(self._color_mode, 1)
+        vt.addLayout(row)
+
+        self._show_dipoles = QCheckBox("Show μ vectors")
+        self._show_dipoles.setEnabled(False)
+        self._show_dipoles.setToolTip(
+            "Render transition dipole vectors on each pigment.\n"
+            "Coming with the dichroism work (P1.1)."
+        )
+        vt.addWidget(self._show_dipoles)
+
+        self._show_labels = QCheckBox("Show pigment labels")
+        self._show_labels.setChecked(True)
+        self._show_labels.setEnabled(False)
+        self._show_labels.setToolTip("Always on for now; toggle wiring is a TODO.")
+        vt.addWidget(self._show_labels)
+
+        v.addWidget(view_tools_card)
+
+        # --- Domains card ------------------------------------------------
+        self._domains_card = QGroupBox("🧩 Domains")
+        self._domains_card.setProperty("class", "card")
+        self._domains_layout = QVBoxLayout(self._domains_card)
+        self._domains_layout.setSpacing(6)
+        self._domains_empty = QLabel("Build the Hamiltonian to discover excitonic domains.")
+        self._domains_empty.setProperty("class", "label")
+        self._domains_empty.setWordWrap(True)
+        self._domains_layout.addWidget(self._domains_empty)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Cutoff |J|"))
+        self._domain_cutoff = QSlider(Qt.Horizontal)
+        self._domain_cutoff.setRange(0, 100)
+        self._domain_cutoff.setValue(20)
+        self._domain_cutoff.valueChanged.connect(self.domain_cutoff_changed.emit)
+        self._domain_cutoff_readout = QLabel("20 cm⁻¹")
+        self._domain_cutoff.valueChanged.connect(
+            lambda v: self._domain_cutoff_readout.setText(f"{v} cm⁻¹")
+        )
+        row.addWidget(self._domain_cutoff, 1)
+        row.addWidget(self._domain_cutoff_readout)
+        self._domains_layout.addLayout(row)
+
+        v.addWidget(self._domains_card)
+
+        # --- Notebook card -----------------------------------------------
+        notebook_card = QGroupBox("📓 Notebook")
+        notebook_card.setProperty("class", "card")
+        nb = QVBoxLayout(notebook_card)
+        nb.setSpacing(4)
+        hint = QLabel("Per-project notes (saved inside .alproj).")
+        hint.setProperty("class", "label")
+        hint.setWordWrap(True)
+        nb.addWidget(hint)
+
+        self._notebook_edit = QPlainTextEdit()
+        self._notebook_edit.setPlaceholderText("Type notes here…")
+        self._notebook_edit.setMinimumHeight(120)
+        self._notebook_edit.textChanged.connect(
+            lambda: self.notebook_edited.emit(self._notebook_edit.toPlainText())
+        )
+        nb.addWidget(self._notebook_edit)
+
+        v.addWidget(notebook_card)
+
         v.addStretch(1)
+
+    # ------------------------------------------------------------------
+    # Public setters used by the workbench
+    # ------------------------------------------------------------------
+
+    def set_notebook_text(self, text: str) -> None:
+        """Programmatically set the notebook (e.g. after loading a project)."""
+        if text == self._notebook_edit.toPlainText():
+            return
+        self._notebook_edit.blockSignals(True)
+        self._notebook_edit.setPlainText(text or "")
+        self._notebook_edit.blockSignals(False)
+
+    def get_notebook_text(self) -> str:
+        return self._notebook_edit.toPlainText()
+
+    def set_domains(self, domains: dict, palette: Optional[dict] = None) -> None:
+        """Render coloured swatches for the discovered domains.
+
+        ``domains`` maps ``{domain_id: [pigment_index, ...]}``. If
+        ``palette`` is supplied (``{domain_id: "#rrggbb"}``) we use it,
+        otherwise we cycle a small built-in colour list.
+        """
+        # Clear previous rows except the empty hint and cutoff slider.
+        while self._domains_layout.count() > 2:
+            item = self._domains_layout.takeAt(1)  # take after the hint
+            if item is None:
+                break
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        if not domains:
+            self._domains_empty.setVisible(True)
+            return
+        self._domains_empty.setVisible(False)
+        default_palette = [
+            "#2563eb", "#22c55e", "#f59e0b", "#ef4444",
+            "#a855f7", "#06b6d4", "#84cc16", "#d946ef",
+        ]
+        for i, (did, members) in enumerate(sorted(domains.items())):
+            colour = (palette or {}).get(did, default_palette[i % len(default_palette)])
+            row = QHBoxLayout()
+            swatch = QLabel()
+            swatch.setFixedSize(12, 12)
+            swatch.setStyleSheet(
+                f"background-color: {colour}; border-radius: 2px;"
+            )
+            name = QLabel(f"D{int(did) + 1}")
+            name.setStyleSheet("font-weight: 600;")
+            count = QLabel(f"{len(members)} pigments")
+            count.setProperty("class", "label")
+            row.addWidget(swatch)
+            row.addWidget(name)
+            row.addStretch(1)
+            row.addWidget(count)
+            container = QWidget()
+            container.setLayout(row)
+            # Click to focus the domain in the 3D viewer.
+            container.mousePressEvent = (  # type: ignore[assignment]
+                lambda _ev, did=did: self.domain_focus_requested.emit(int(did) + 1)
+            )
+            container.setCursor(Qt.PointingHandCursor)
+            # Insert above the cutoff slider (last item).
+            self._domains_layout.insertWidget(self._domains_layout.count() - 1, container)
 
     def _build_kv_card(self, title: str, rows: list[tuple[str, str]]) -> QGroupBox:
         card = QGroupBox(title)

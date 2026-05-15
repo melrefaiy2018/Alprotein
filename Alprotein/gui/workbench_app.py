@@ -11,7 +11,8 @@ Main application for the Alprotein Scientific Workbench with:
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QAction, QActionGroup, QMessageBox,
-    QProgressBar, QLabel, QFileDialog, QPushButton, QShortcut
+    QProgressBar, QLabel, QFileDialog, QMenu, QPushButton, QShortcut,
+    QSizePolicy, QToolBar, QToolButton, QWidget
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QKeySequence, QIcon, QFont
@@ -55,9 +56,11 @@ class ScientificWorkbenchApp(QMainWindow):
         self.undo = UndoController(self)
         self._current_project_path: "Path | None" = None
         self._project_dirty: bool = False
+        self._project_display_name: str = ""
 
         # Setup UI components
         self.setup_menu_bar()
+        self.setup_toolbar()
         self.setup_status_bar()
         self.setup_shortcuts()
         self.connect_signals()
@@ -245,8 +248,7 @@ class ScientificWorkbenchApp(QMainWindow):
             ("Ctrl+Shift+1", "Go to 3D Structure", "3D Structure"),
             ("Ctrl+Shift+2", "Go to Hamiltonian", "Hamiltonian"),
             ("Ctrl+Shift+3", "Go to Spectra", "Spectra"),
-            ("Ctrl+Shift+4", "Go to Spectra (Fast)", "Spectra (Fast)"),
-            ("Ctrl+Shift+5", "Go to Data Analysis", "Data Analysis"),
+            ("Ctrl+Shift+4", "Go to Data Analysis", "Data Analysis"),
         ):
             action = QAction(label, self)
             action.setShortcut(shortcut)
@@ -304,6 +306,138 @@ class ScientificWorkbenchApp(QMainWindow):
         self.about_action.triggered.connect(self.on_about)
         help_menu.addAction(self.about_action)
 
+    def setup_toolbar(self):
+        """Build the horizontal action toolbar shown under the menu bar.
+
+        Items here are duplicates of menu actions and palette commands —
+        the toolbar is purely a visibility / discoverability win. We
+        deliberately keep the icon set as Unicode glyphs so we don't pull
+        in icon-theme dependencies just for the toolbar.
+        """
+        bar = QToolBar("Main", self)
+        bar.setObjectName("workbench_toolbar")
+        bar.setMovable(False)
+        bar.setFloatable(False)
+        bar.setIconSize(self.iconSize())
+        bar.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        bar.setContextMenuPolicy(Qt.PreventContextMenu)
+        bar.setStyleSheet(
+            """
+            QToolBar { spacing: 4px; padding: 4px 8px; }
+            QToolButton {
+                padding: 4px 10px;
+                border-radius: 5px;
+            }
+            QToolButton:hover { background: rgba(0,0,0,0.06); }
+            QToolButton[primary="true"] {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            """
+        )
+
+        # --- File group -------------------------------------------------
+        open_btn = self._toolbar_action(bar, "📂  Open", self.workbench.on_open_project,
+                                         tooltip="Open a PDB file (⌘O)", primary=True)
+        save_btn = self._toolbar_action(bar, "💾  Save", self.on_save_project,
+                                         tooltip="Save the current session as .alproj (⌘S)")
+
+        # Recent ▾ — a tool button with a popup menu that we rebuild on display.
+        self._toolbar_recent_btn = QToolButton(bar)
+        self._toolbar_recent_btn.setText("🕒  Recent ▾")
+        self._toolbar_recent_btn.setPopupMode(QToolButton.InstantPopup)
+        self._toolbar_recent_btn.setToolTip("Recently opened files")
+        self._toolbar_recent_menu = QMenu(self._toolbar_recent_btn)
+        self._toolbar_recent_menu.aboutToShow.connect(
+            lambda: self._populate_recent_into(self._toolbar_recent_menu)
+        )
+        self._toolbar_recent_btn.setMenu(self._toolbar_recent_menu)
+        bar.addWidget(self._toolbar_recent_btn)
+
+        bar.addSeparator()
+
+        # --- Edit -------------------------------------------------------
+        bar.addAction(self.undo_action)
+        bar.addAction(self.redo_action)
+
+        bar.addSeparator()
+
+        # --- Calculate --------------------------------------------------
+        self._toolbar_action(bar, "▶  Run All",
+                              self.on_run_all_calculations,
+                              tooltip="Run site energies → Hamiltonian → spectrum (⌘⇧R)",
+                              primary=True)
+        self._stop_btn = self._toolbar_action(bar, "■  Stop",
+                                              self.cancel_current_calculation,
+                                              tooltip="Cancel running calculation (⌘.)")
+
+        bar.addSeparator()
+
+        # --- Export / theme / palette -----------------------------------
+        export_btn = QToolButton(bar)
+        export_btn.setText("📤  Export ▾")
+        export_btn.setPopupMode(QToolButton.InstantPopup)
+        export_menu = QMenu(export_btn)
+        export_menu.addAction("Data…", self.on_export_data)
+        export_menu.addAction("Plots…", self.on_export_plots)
+        export_btn.setMenu(export_menu)
+        bar.addWidget(export_btn)
+
+        theme_btn = QToolButton(bar)
+        theme_btn.setText("🎨  Theme ▾")
+        theme_btn.setPopupMode(QToolButton.InstantPopup)
+        theme_menu = QMenu(theme_btn)
+        theme_menu.addAction("Light", lambda: self.set_theme("light"))
+        theme_menu.addAction("Dark", lambda: self.set_theme("dark"))
+        theme_btn.setMenu(theme_menu)
+        bar.addWidget(theme_btn)
+
+        # Spacer pushes the ⌘K hint to the right.
+        spacer = QWidget(bar)
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        bar.addWidget(spacer)
+
+        self._toolbar_action(bar, "⌘K  Command palette",
+                              self.palette.toggle,
+                              tooltip="Search any action (⌘K)")
+
+        self.addToolBar(Qt.TopToolBarArea, bar)
+        self._toolbar = bar
+
+    def _toolbar_action(self, bar: QToolBar, label: str, slot, *,
+                         tooltip: str = "", primary: bool = False) -> QToolButton:
+        """Add a plain push-button-style tool button to ``bar``."""
+        btn = QToolButton(bar)
+        btn.setText(label)
+        if tooltip:
+            btn.setToolTip(tooltip)
+        btn.clicked.connect(slot)
+        if primary:
+            btn.setProperty("primary", "true")
+        bar.addWidget(btn)
+        return btn
+
+    def _populate_recent_into(self, menu: QMenu) -> None:
+        """Shared helper: fill an arbitrary QMenu with recent entries."""
+        menu.clear()
+        entries = self.recent.entries()
+        if not entries:
+            empty = menu.addAction("(no recent files)")
+            empty.setEnabled(False)
+            return
+        for entry in entries:
+            label = Path(entry.path).name
+            label = ("📦 " if entry.kind == "project" else "🧬 ") + label
+            action = menu.addAction(label)
+            action.setStatusTip(entry.path)
+            entry_path, entry_kind = entry.path, entry.kind
+            action.triggered.connect(
+                lambda _checked=False, p=entry_path, k=entry_kind: self._open_recent(p, k)
+            )
+        menu.addSeparator()
+        clear = menu.addAction("Clear Recent")
+        clear.triggered.connect(self._clear_recent)
+
     def setup_status_bar(self):
         """Create status bar with progress tracking and cancel button."""
         statusbar = self.statusBar()
@@ -342,11 +476,18 @@ class ScientificWorkbenchApp(QMainWindow):
         self.workbench.calculation_cancelled.connect(self.on_calculation_cancelled)
         self.workbench.calculation_completed.connect(self.on_calculation_completed)
         self.workbench.pdb_loaded.connect(self.on_pdb_loaded)
+        # .alproj drops bubble up to the app so we can run the full project
+        # restoration path instead of treating them as PDBs.
+        self.workbench.project_open_requested.connect(
+            lambda path: self.load_project_path(Path(path))
+        )
         # Clear the undo stack when a new PDB / project is opened to avoid
         # cross-session commands that no longer make sense.
         self.workbench.pdb_loaded.connect(lambda _p: self.undo.clear())
         # Record parameter edits onto the undo stack.
         self.workbench.parameter_committed.connect(self.on_parameter_committed)
+        # Mark dirty on notebook edits too.
+        self.workbench.notebook_edited.connect(lambda: self._mark_dirty(True))
 
     def apply_styling(self):
         """Apply the current theme stylesheet plus matplotlib rcParams."""
@@ -487,12 +628,9 @@ class ScientificWorkbenchApp(QMainWindow):
         p.add_command("view.tab.spectra", "Go to Spectra",
                       lambda: self._goto_tab_by_name("Spectra"),
                       group="View", shortcut="⌘⇧3")
-        p.add_command("view.tab.spectra_fast", "Go to Spectra (Fast)",
-                      lambda: self._goto_tab_by_name("Spectra (Fast)"),
-                      group="View", shortcut="⌘⇧4")
         p.add_command("view.tab.analysis", "Go to Data & Analysis",
                       lambda: self._goto_tab_by_name("Data Analysis"),
-                      group="View", shortcut="⌘⇧5")
+                      group="View", shortcut="⌘⇧4")
 
         p.add_command("help.quickstart", "Quick start guide",
                       self.on_quick_start, group="Help", shortcut="F1")
@@ -510,7 +648,7 @@ class ScientificWorkbenchApp(QMainWindow):
             self.workbench.tools_panel.set_value_silently(k, value)
 
         self.undo.push(ParameterEditCommand(apply, key, old, new))
-        self._project_dirty = True
+        self._mark_dirty(True)
 
     # ------------------------------------------------------------------
     # PDB load hook
@@ -532,7 +670,20 @@ class ScientificWorkbenchApp(QMainWindow):
         # Loading a fresh PDB invalidates the active project file.
         self._current_project_path = None
         self._project_dirty = False
-        self.setWindowTitle(f"Alprotein — {path.name}")
+        self._project_display_name = path.name
+        self._refresh_title()
+
+    def _refresh_title(self) -> None:
+        """Re-render the window title from the current project state."""
+        name = self._project_display_name or "Untitled"
+        dirty = " • modified" if self._project_dirty else ""
+        self.setWindowTitle(f"Alprotein — {name}{dirty}")
+
+    def _mark_dirty(self, dirty: bool = True) -> None:
+        if self._project_dirty == dirty:
+            return
+        self._project_dirty = dirty
+        self._refresh_title()
 
     # ------------------------------------------------------------------
     # Project save / load / recents
@@ -569,8 +720,9 @@ class ScientificWorkbenchApp(QMainWindow):
             return
         self._current_project_path = written
         self._project_dirty = False
+        self._project_display_name = written.name
         self.recent.add(written, kind="project")
-        self.setWindowTitle(f"Alprotein — {written.name}")
+        self._refresh_title()
         self.toasts.success("Project saved", str(written))
 
     def on_open_project_file(self) -> None:
@@ -593,31 +745,14 @@ class ScientificWorkbenchApp(QMainWindow):
             return
         self._current_project_path = path
         self._project_dirty = False
+        self._project_display_name = path.name
         self.recent.add(path, kind="project")
-        self.setWindowTitle(f"Alprotein — {path.name}")
+        self._refresh_title()
         self.toasts.success("Project opened", project.name or path.name)
 
     def _populate_recent_menu(self) -> None:
-        """Rebuild the Open Recent submenu when it's about to display."""
-        self.recent_menu.clear()
-        entries = self.recent.entries()
-        if not entries:
-            empty = self.recent_menu.addAction("(no recent files)")
-            empty.setEnabled(False)
-            return
-        for entry in entries:
-            label = Path(entry.path).name
-            if entry.kind == "project":
-                label = f"📦 {label}"
-            else:
-                label = f"🧬 {label}"
-            action = self.recent_menu.addAction(label)
-            action.setStatusTip(entry.path)
-            entry_path, entry_kind = entry.path, entry.kind  # capture for closure
-            action.triggered.connect(lambda _checked, p=entry_path, k=entry_kind: self._open_recent(p, k))
-        self.recent_menu.addSeparator()
-        clear = self.recent_menu.addAction("Clear Recent")
-        clear.triggered.connect(self._clear_recent)
+        """Rebuild the File → Open Recent submenu when it's about to display."""
+        self._populate_recent_into(self.recent_menu)
 
     def _open_recent(self, path: str, kind: str) -> None:
         target = Path(path)

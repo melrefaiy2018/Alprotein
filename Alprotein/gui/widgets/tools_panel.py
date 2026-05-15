@@ -23,7 +23,7 @@ class DragDropArea(QLabel):
     file_dropped = pyqtSignal(str)
 
     def __init__(self):
-        super().__init__("🧬 Drag PDB file here\nor click to browse")
+        super().__init__("🧬 Drag PDB or .alproj here\nor click to browse")
         self.setAcceptDrops(True)
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumHeight(80)
@@ -70,7 +70,8 @@ class DragDropArea(QLabel):
         urls = event.mimeData().urls()
         if urls:
             file_path = urls[0].toLocalFile()
-            if file_path.endswith('.pdb'):
+            lower = file_path.lower()
+            if lower.endswith(".pdb") or lower.endswith(".alproj"):
                 self.file_dropped.emit(file_path)
             self.dragLeaveEvent(event)  # Reset style
 
@@ -131,6 +132,11 @@ class ToolsPanel(QWidget):
         # Settings section
         self.settings_group = self.create_settings_section()
         container_layout.addWidget(self.settings_group)
+
+        # Results status section — was orphaned in the previous layout. Re-attach
+        # so users can see ✓/▶/○ markers for each pipeline step.
+        self.results_group = self.create_results_section()
+        container_layout.addWidget(self.results_group)
 
         container_layout.addStretch()
 

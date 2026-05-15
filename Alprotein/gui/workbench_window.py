@@ -246,6 +246,8 @@ class ScientificWorkbenchWindow(QWidget):
     calculation_cancelled = pyqtSignal(str)   # calc_type
     calculation_completed = pyqtSignal(str)   # calc_type — for success toasts
     pdb_loaded = pyqtSignal(str)              # absolute file path
+    project_open_requested = pyqtSignal(str)  # .alproj path — handled by the app
+    notebook_edited = pyqtSignal()            # any change to the inspector notebook
     # Forwarded from the Tools panel for undo recording.
     parameter_committed = pyqtSignal(str, object, object)  # key, old, new
 
@@ -315,19 +317,21 @@ class ScientificWorkbenchWindow(QWidget):
         self.hamiltonian_widget = HamiltonianWidget()
         self.workspace_tabs.addTab(self.hamiltonian_widget, "📐 Hamiltonian")
 
-        # Tab 2: Spectra (NEW)
-        self.spectrum_widget = SpectrumPlotWidget()
-        self.workspace_tabs.addTab(self.spectrum_widget, "📊 Spectra")
-
-        # Tab 2b: Fast spectra (pyqtgraph). Lives alongside the matplotlib
-        # widget while we verify parity. Once we're happy with it, the
-        # matplotlib widget gets retired and this becomes the only Spectra
-        # tab.
+        # Tab 2: Spectra — pyqtgraph by default; if pyqtgraph isn't
+        # installed we transparently fall back to the matplotlib widget
+        # that shipped previously so headless installs still work.
         if PYQTGRAPH_AVAILABLE:
-            self.spectrum_widget_fast = FastSpectrumWidget()
-            self.workspace_tabs.addTab(self.spectrum_widget_fast, "⚡ Spectra (Fast)")
+            self.spectrum_widget = FastSpectrumWidget()
+            self._spectrum_is_fast = True
         else:
-            self.spectrum_widget_fast = None
+            self.spectrum_widget = SpectrumPlotWidget()
+            self._spectrum_is_fast = False
+        self.workspace_tabs.addTab(self.spectrum_widget, "📊 Spectra")
+        # Legacy alias retained so older code paths that still reference
+        # ``spectrum_widget_fast`` keep working.
+        self.spectrum_widget_fast = (
+            self.spectrum_widget if self._spectrum_is_fast else None
+        )
 
         # Tab 3: Data Analysis (ENHANCED)
         self.data_analysis_tab = self.create_data_analysis_tab()
@@ -627,10 +631,6 @@ class ScientificWorkbenchWindow(QWidget):
         self.spectrum_widget.run_spectra_requested.connect(self.on_run_spectra_requested)
         self.spectrum_widget.export_requested.connect(self.on_export_spectrum)
         self.spectrum_widget.parameters_changed.connect(self.on_spectra_parameters_changed)
-        if self.spectrum_widget_fast is not None:
-            self.spectrum_widget_fast.run_spectra_requested.connect(self.on_run_spectra_requested)
-            self.spectrum_widget_fast.export_requested.connect(self.on_export_spectrum)
-            self.spectrum_widget_fast.parameters_changed.connect(self.on_spectra_parameters_changed)
 
         # Data table signals (Tab 3)
         # Data table removed from Data Analysis tab
@@ -665,13 +665,27 @@ class ScientificWorkbenchWindow(QWidget):
         self.inspector_panel.focus_requested.connect(self.protein_viewer.highlight_pigment)
         # Inspector → site-energy override (handled by existing pathway)
         self.inspector_panel.override_changed.connect(self._on_inspector_override_changed)
+        # Notebook edits — forwarded so the surrounding app can mark dirty.
+        self.inspector_panel.notebook_edited.connect(self._on_notebook_edited)
+        # Color-mode dropdown in the Live View Tools card.
+        self.inspector_panel.color_mode_changed.connect(self._on_color_mode_changed)
+        # Domain cutoff slider in the Domains card.
+        self.inspector_panel.domain_cutoff_changed.connect(
+            self.hamiltonian_widget.set_domain_cutoff
+        )
+        # Clicking a domain row focuses the camera on its centroid (best-effort).
+        self.inspector_panel.domain_focus_requested.connect(self._on_domain_focus_requested)
 
     def on_file_dropped(self, file_path: str):
         """Handle file drop from drag-and-drop area"""
-        if file_path:  # Non-empty path means actual file
-            self.load_pdb_file(file_path)
-        else:  # Empty path means user clicked, open dialog
+        if not file_path:  # Empty path means user clicked, open dialog
             self.on_open_project()
+            return
+        if file_path.lower().endswith(".alproj"):
+            # Defer to the surrounding app, which owns project I/O.
+            self.project_open_requested.emit(file_path)
+            return
+        self.load_pdb_file(file_path)
 
     def on_export_hamiltonian(self):
         """Export Hamiltonian matrix to CSV"""
@@ -1051,10 +1065,8 @@ class ScientificWorkbenchWindow(QWidget):
             self.inspector_panel.refresh()
 
     def _spectrum_set_run_enabled(self, enabled: bool) -> None:
-        """Enable/disable the Run Spectra button on both spectrum widgets."""
+        """Enable/disable the Run Spectra button on the active spectrum widget."""
         self.spectrum_widget.set_run_enabled(enabled)
-        if self.spectrum_widget_fast is not None:
-            self.spectrum_widget_fast.set_run_enabled(enabled)
 
     def _on_domains_updated(self, domains_dict) -> None:
         """Cache the latest domain assignment so the Inspector can show it."""
@@ -1063,6 +1075,7 @@ class ScientificWorkbenchWindow(QWidget):
         except TypeError:
             self._domains = {}
         if hasattr(self, "inspector_panel"):
+            self.inspector_panel.set_domains(self._domains)
             self.inspector_panel.refresh()
 
     # ------------------------------------------------------------------
@@ -1095,6 +1108,49 @@ class ScientificWorkbenchWindow(QWidget):
     # ------------------------------------------------------------------
     # Inspector wiring
     # ------------------------------------------------------------------
+
+    def _on_notebook_edited(self, _text: str) -> None:
+        """Bubble notebook edits up to the app so it can mark the project dirty."""
+        self.notebook_edited.emit()
+
+    def _on_color_mode_changed(self, mode: str) -> None:
+        """Apply the user's "Color by" choice to the 3D viewer."""
+        if not self.pigment_system:
+            return
+        if mode == "site_energy" and self.site_energies:
+            self.protein_viewer.update_energy_visualization(self.site_energies)
+        elif mode == "domain" and self._domains:
+            self.protein_viewer.update_domain_visualization(self._domains)
+        elif mode == "exciton" and self.eigenvectors is not None and self.pigment_labels:
+            # Trigger a repaint at the current scrub index (1 by default).
+            try:
+                pv = self.protein_viewer
+                k = pv._scrub_slider.value() if pv._scrub_frame.isEnabled() else 1
+                pv._apply_exciton(k)
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not switch to exciton colouring")
+        elif mode == "pigment_type":
+            # The renderer's initial styling already colours by residue type.
+            # Easiest way to reset: ask the viewer to reload the structure
+            # styling via reset_view + a re-apply of the empty energy map.
+            try:
+                self.protein_viewer.viewer_3d.reset_view()
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _on_domain_focus_requested(self, domain_id_1based: int) -> None:
+        """Pick a representative pigment in the chosen domain and focus on it."""
+        if not self.pigment_labels or not self._domains:
+            return
+        # _domains is keyed by 0-based ids in the workbench cache.
+        members = self._domains.get(domain_id_1based - 1)
+        if not members:
+            return
+        try:
+            label = self.pigment_labels[int(members[0])]
+        except (IndexError, TypeError, ValueError):
+            return
+        self.selection.set_pigment(label, source="domain_card")
 
     def _on_inspector_override_changed(self, pigment_id: str, new_value) -> None:
         """Apply or reset a site-energy override from the inspector panel."""
@@ -1515,13 +1571,6 @@ class ScientificWorkbenchWindow(QWidget):
                         wavelengths_fl=wavelengths_fl,
                         fluorescence=fluorescence
                     )
-                    if self.spectrum_widget_fast is not None:
-                        self.spectrum_widget_fast.update_spectra(
-                            wavelengths_abs=wavelengths_abs,
-                            absorption=absorption,
-                            wavelengths_fl=wavelengths_fl,
-                            fluorescence=fluorescence,
-                        )
 
                     # Find absorption peak for status
                     peak_idx = np.argmax(absorption)
@@ -1561,13 +1610,6 @@ class ScientificWorkbenchWindow(QWidget):
                         A_00=A_00,
                         A_01=A_01
                     )
-                    if self.spectrum_widget_fast is not None:
-                        self.spectrum_widget_fast.update_spectrum_with_components(
-                            wavelengths=wavelengths,
-                            spectrum=spectrum,
-                            A_00=A_00,
-                            A_01=A_01,
-                        )
 
                     peak_idx = np.argmax(spectrum)
                     peak_wl = wavelengths[peak_idx]
@@ -2093,6 +2135,12 @@ class ScientificWorkbenchWindow(QWidget):
             "current_tab": self.workspace_tabs.currentIndex(),
         }
 
+        notebook = ""
+        try:
+            notebook = self.inspector_panel.get_notebook_text()
+        except Exception:  # noqa: BLE001
+            pass
+
         return Project(
             name=name,
             source_pdb_path=str(self.current_file) if self.current_file else "",
@@ -2111,6 +2159,7 @@ class ScientificWorkbenchWindow(QWidget):
                 dict(self.exciton_distributions) if self.exciton_distributions else None
             ),
             exciton_labels=list(self.exciton_labels) if self.exciton_labels else None,
+            notebook=notebook,
             view_state=view_state,
         )
 
@@ -2180,7 +2229,13 @@ class ScientificWorkbenchWindow(QWidget):
         if project.exciton_labels:
             self.exciton_labels = list(project.exciton_labels)
 
-        # 4. Restore view state.
+        # 4. Restore the per-project notebook into the inspector widget.
+        try:
+            self.inspector_panel.set_notebook_text(project.notebook or "")
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not restore notebook text from project")
+
+        # 5. Restore view state.
         view = project.view_state or {}
         try:
             if "wavelength_min_nm" in view:
@@ -2229,8 +2284,6 @@ class ScientificWorkbenchWindow(QWidget):
             (self.hamiltonian_widget, "clear"),
             (self.spectrum_widget, "clear"),
         ]
-        if self.spectrum_widget_fast is not None:
-            clear_targets.append((self.spectrum_widget_fast, "clear"))
         for widget, attr in clear_targets:
             fn = getattr(widget, attr, None)
             if callable(fn):
