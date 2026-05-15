@@ -94,11 +94,17 @@ class Theme:
             background-color: transparent;
         }}
 
-        /* Cards */
+        /* Cards — preferred style: QFrame.card with an internal
+           QLabel.card-title. QGroupBox.card stays supported for the few
+           legacy widgets that still use it, but its native title placement
+           on macOS misbehaves (floats outside the border), so new code
+           should use widgets.cards.make_card(). */
         QFrame.card, QGroupBox.card {{
             background-color: {t.bg_panel};
             border: 1px solid {t.border};
             border-radius: {t.radius_card};
+        }}
+        QGroupBox.card {{
             padding: {t.padding_card};
             margin-top: 16px;
         }}
@@ -106,7 +112,7 @@ class Theme:
             subcontrol-origin: margin;
             subcontrol-position: top left;
             left: 14px;
-            top: 0px;
+            top: -4px;
             padding: 0 6px;
             background-color: {t.bg_panel};
             color: {t.text_primary};
@@ -114,12 +120,14 @@ class Theme:
             font-weight: 600;
         }}
 
-        /* Labels */
+        /* Card title — the label inserted by make_card() */
         QLabel.card-title {{
-            font-size: {t.font_size_card_title};
-            font-weight: 600;
-            color: {t.text_primary};
-            padding-bottom: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: {t.text_secondary};
+            text-transform: uppercase;
+            padding-bottom: 4px;
         }}
         QLabel.page-title {{
             font-size: {t.font_size_page_title};

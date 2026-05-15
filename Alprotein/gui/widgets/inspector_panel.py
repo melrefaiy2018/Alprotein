@@ -22,7 +22,6 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
@@ -32,6 +31,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from Alprotein.gui.widgets.cards import make_card
 
 
 @dataclass(frozen=True)
@@ -112,10 +113,7 @@ class InspectorPanel(QWidget):
         v.setSpacing(12)
 
         # --- Header card -------------------------------------------------
-        header = QGroupBox("🧭 INSPECTOR")
-        header.setProperty("class", "card")
-        h_layout = QVBoxLayout(header)
-        h_layout.setSpacing(6)
+        header, h_layout = make_card("🧭 INSPECTOR", spacing=6)
         self.title_label = QLabel("No selection")
         self.title_label.setStyleSheet("font-weight: 600; font-size: 14px;")
         h_layout.addWidget(self.title_label)
@@ -157,10 +155,7 @@ class InspectorPanel(QWidget):
         ]))
 
         # --- Override editor --------------------------------------------
-        override_card = QGroupBox("Site-energy override")
-        override_card.setProperty("class", "card")
-        ov = QVBoxLayout(override_card)
-        ov.setSpacing(6)
+        override_card, ov = make_card("Site-energy override", spacing=6)
 
         self.override_spin = QDoubleSpinBox()
         self.override_spin.setRange(8_000.0, 22_000.0)
@@ -185,10 +180,7 @@ class InspectorPanel(QWidget):
         v.addWidget(override_card)
 
         # --- Live View Tools card ----------------------------------------
-        view_tools_card = QGroupBox("🎚 Live View Tools")
-        view_tools_card.setProperty("class", "card")
-        vt = QVBoxLayout(view_tools_card)
-        vt.setSpacing(6)
+        view_tools_card, vt = make_card("🎚 Live View Tools", spacing=6)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Color by"))
@@ -220,10 +212,10 @@ class InspectorPanel(QWidget):
         v.addWidget(view_tools_card)
 
         # --- Domains card ------------------------------------------------
-        self._domains_card = QGroupBox("🧩 Domains")
-        self._domains_card.setProperty("class", "card")
-        self._domains_layout = QVBoxLayout(self._domains_card)
-        self._domains_layout.setSpacing(6)
+        self._domains_card, self._domains_layout = make_card("🧩 Domains", spacing=6)
+        # Track dynamically-rendered domain rows so set_domains() can clear
+        # them without relying on layout indices.
+        self._domain_row_widgets: list[QWidget] = []
         self._domains_empty = QLabel("Build the Hamiltonian to discover excitonic domains.")
         self._domains_empty.setProperty("class", "label")
         self._domains_empty.setWordWrap(True)
@@ -241,15 +233,15 @@ class InspectorPanel(QWidget):
         )
         row.addWidget(self._domain_cutoff, 1)
         row.addWidget(self._domain_cutoff_readout)
-        self._domains_layout.addLayout(row)
+        cutoff_widget = QWidget()
+        cutoff_widget.setLayout(row)
+        self._domains_cutoff_row = cutoff_widget
+        self._domains_layout.addWidget(cutoff_widget)
 
         v.addWidget(self._domains_card)
 
         # --- Notebook card -----------------------------------------------
-        notebook_card = QGroupBox("📓 Notebook")
-        notebook_card.setProperty("class", "card")
-        nb = QVBoxLayout(notebook_card)
-        nb.setSpacing(4)
+        notebook_card, nb = make_card("📓 Notebook", spacing=4)
         hint = QLabel("Per-project notes (saved inside .alproj).")
         hint.setProperty("class", "label")
         hint.setWordWrap(True)
@@ -289,22 +281,25 @@ class InspectorPanel(QWidget):
         ``palette`` is supplied (``{domain_id: "#rrggbb"}``) we use it,
         otherwise we cycle a small built-in colour list.
         """
-        # Clear previous rows except the empty hint and cutoff slider.
-        while self._domains_layout.count() > 2:
-            item = self._domains_layout.takeAt(1)  # take after the hint
-            if item is None:
-                break
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
+        # Drop the previous dynamic rows (we keep card title / empty hint /
+        # cutoff slider intact via explicit tracking).
+        for w in self._domain_row_widgets:
+            self._domains_layout.removeWidget(w)
+            w.deleteLater()
+        self._domain_row_widgets.clear()
+
         if not domains:
             self._domains_empty.setVisible(True)
             return
         self._domains_empty.setVisible(False)
+
         default_palette = [
             "#2563eb", "#22c55e", "#f59e0b", "#ef4444",
             "#a855f7", "#06b6d4", "#84cc16", "#d946ef",
         ]
+        # Insert each domain row just before the cutoff slider.
+        cutoff_idx = self._domains_layout.indexOf(self._domains_cutoff_row)
+        insert_at = cutoff_idx if cutoff_idx >= 0 else self._domains_layout.count()
         for i, (did, members) in enumerate(sorted(domains.items())):
             colour = (palette or {}).get(did, default_palette[i % len(default_palette)])
             row = QHBoxLayout()
@@ -323,19 +318,16 @@ class InspectorPanel(QWidget):
             row.addWidget(count)
             container = QWidget()
             container.setLayout(row)
-            # Click to focus the domain in the 3D viewer.
             container.mousePressEvent = (  # type: ignore[assignment]
                 lambda _ev, did=did: self.domain_focus_requested.emit(int(did) + 1)
             )
             container.setCursor(Qt.PointingHandCursor)
-            # Insert above the cutoff slider (last item).
-            self._domains_layout.insertWidget(self._domains_layout.count() - 1, container)
+            self._domains_layout.insertWidget(insert_at, container)
+            self._domain_row_widgets.append(container)
+            insert_at += 1
 
-    def _build_kv_card(self, title: str, rows: list[tuple[str, str]]) -> QGroupBox:
-        card = QGroupBox(title)
-        card.setProperty("class", "card")
-        layout = QVBoxLayout(card)
-        layout.setSpacing(4)
+    def _build_kv_card(self, title: str, rows: list[tuple[str, str]]) -> QFrame:
+        card, layout = make_card(title, spacing=4)
         for label_text, key in rows:
             row = QHBoxLayout()
             label = QLabel(label_text)

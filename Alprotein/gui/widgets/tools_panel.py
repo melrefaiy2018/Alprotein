@@ -16,6 +16,7 @@ from PyQt5.QtGui import QFont, QCursor
 from typing import Dict, Any
 
 from Alprotein.gui.tooltips import apply_tooltips
+from Alprotein.gui.widgets.cards import make_card
 
 
 class DragDropArea(QLabel):
@@ -162,10 +163,7 @@ class ToolsPanel(QWidget):
 
     def create_project_section(self):
         """Create project information section"""
-        group = QGroupBox("📁 PROJECT")
-        group.setProperty("class", "card")
-        layout = QVBoxLayout(group)
-        layout.setSpacing(10)
+        group, layout = make_card("📁 PROJECT", spacing=10)
 
         # Drag-drop area
         self.drag_drop_area = DragDropArea()
@@ -228,10 +226,7 @@ class ToolsPanel(QWidget):
 
     def create_settings_section(self):
         """Create calculation settings section"""
-        group = QGroupBox("⚙ SETTINGS")
-        group.setProperty("class", "card")
-        layout = QVBoxLayout(group)
-        layout.setSpacing(12)
+        group, layout = make_card("⚙ SETTINGS", spacing=12)
 
         # Calculation header
         calc_header = QLabel("Calculation")
@@ -316,10 +311,7 @@ class ToolsPanel(QWidget):
 
     def create_progress_section(self):
         """Create progress tracking section"""
-        group = QGroupBox("⏱ PROGRESS")
-        group.setProperty("class", "card")
-        layout = QVBoxLayout(group)
-        layout.setSpacing(8)
+        group, layout = make_card("⏱ PROGRESS", spacing=8)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -355,10 +347,7 @@ class ToolsPanel(QWidget):
 
     def create_results_section(self):
         """Create results tracking section"""
-        group = QGroupBox("📊 RESULTS")
-        group.setProperty("class", "card")
-        layout = QVBoxLayout(group)
-        layout.setSpacing(10)
+        group, layout = make_card("📊 RESULTS", spacing=10)
 
         # Results list
         self.results_items = {}

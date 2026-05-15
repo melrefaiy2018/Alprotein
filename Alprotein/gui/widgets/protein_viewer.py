@@ -375,32 +375,67 @@ Alternatively, use the export function to generate:
             QMessageBox.warning(self, "No Structure", "No structure loaded to export.")
     
     def load_empty_view(self):
-        """Load an empty 3D view"""
+        """Render a friendly empty state until a PDB is loaded."""
         if not WEBENGINE_AVAILABLE:
             return
-            
         html_content = """
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="utf-8">
             <title>Alprotein 3D Viewer</title>
-            <script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
             <style>
-                body { margin: 0; padding: 0; background: #f7f7f7; font-family: Arial, sans-serif; }
-                #viewer { width: 100%; height: 100vh; background: linear-gradient(45deg, #f7f7f7 0%, #efefef 100%); }
-                #info { position: absolute; top: 20px; left: 20px; color: #111111; font-size: 18px; z-index: 1000; }
+                :root {
+                    --bg: #f4f5f7;
+                    --panel: #ffffff;
+                    --border: #e3e6ea;
+                    --ink: #14181f;
+                    --muted: #6b7280;
+                    --accent: #2563eb;
+                }
+                * { box-sizing: border-box; }
+                html, body {
+                    margin: 0; padding: 0; height: 100%;
+                    background: var(--bg);
+                    font-family: -apple-system, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+                    color: var(--ink);
+                    display: flex; align-items: center; justify-content: center;
+                }
+                .card {
+                    background: var(--panel);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    padding: 32px 40px;
+                    max-width: 460px;
+                    text-align: center;
+                    box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 16px 40px -28px rgba(0,0,0,0.15);
+                }
+                .glyph {
+                    font-size: 48px; line-height: 1; margin-bottom: 14px;
+                }
+                h1 { font-size: 17px; margin: 0 0 6px; font-weight: 600; }
+                p { font-size: 13px; color: var(--muted); margin: 4px 0; line-height: 1.5; }
+                .keys {
+                    display: inline-flex; gap: 6px; margin-top: 14px; flex-wrap: wrap;
+                    justify-content: center;
+                }
+                .kbd {
+                    font-family: ui-monospace, Menlo, Consolas, monospace;
+                    font-size: 11px;
+                    background: var(--bg); border: 1px solid var(--border);
+                    padding: 3px 7px; border-radius: 4px; color: var(--ink);
+                }
             </style>
         </head>
         <body>
-            <div id="info">🧬 Load a PDB file to begin</div>
-            <div id="viewer"></div>
-            <script>
-                let viewer = $3Dmol.createViewer('viewer', {
-                    defaultcolors: $3Dmol.elementColors.rasmol
-                });
-                viewer.setBackgroundColor('#f7f7f7');
-                viewer.render();
-            </script>
+            <div class="card">
+                <div class="glyph">🧬</div>
+                <h1>No structure loaded</h1>
+                <p>Drag a <b>.pdb</b> or <b>.alproj</b> file onto the project panel — or use Open.</p>
+                <div class="keys">
+                    <span class="kbd">⌘O</span><span class="kbd">⌘K</span><span class="kbd">⌘⇧O</span>
+                </div>
+            </div>
         </body>
         </html>
         """

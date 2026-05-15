@@ -37,6 +37,9 @@ class ScientificWorkbenchApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("Alprotein Scientific Workbench")
         self.setGeometry(50, 50, 1600, 1000)
+        # Hide the macOS dark title bar by unifying it with the toolbar. On
+        # other platforms this is a no-op.
+        self.setUnifiedTitleAndToolBarOnMac(True)
 
         # Theme state — light by default, switchable from View menu.
         self._theme: Theme = light_theme
