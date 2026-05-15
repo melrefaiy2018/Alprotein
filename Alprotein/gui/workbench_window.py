@@ -347,16 +347,16 @@ class ScientificWorkbenchWindow(QWidget):
         # RIGHT: Inspector sidebar (driven by SelectionModel; host wired below)
         self.inspector_panel = InspectorPanel()
         self.inspector_panel.set_host(self)
-        # Give the inspector a minimum so its labels never get clipped on
-        # narrower screens. The splitter remains user-resizable.
-        self.inspector_panel.setMinimumWidth(280)
-        self.tools_panel.setMinimumWidth(260)
+        # Sidebar minimums chosen so labels in each card don't clip at the
+        # default window width (1600 px).
+        self.inspector_panel.setMinimumWidth(310)
+        self.tools_panel.setMinimumWidth(300)
         main_splitter.addWidget(self.inspector_panel)
 
         # Proportions: tools | workspace | inspector. Only the centre
         # stretches; the sidebars keep their requested widths unless the
         # user drags them.
-        main_splitter.setSizes([280, 760, 300])
+        main_splitter.setSizes([320, 960, 320])
         main_splitter.setStretchFactor(0, 0)
         main_splitter.setStretchFactor(1, 1)
         main_splitter.setStretchFactor(2, 0)

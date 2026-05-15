@@ -102,8 +102,10 @@ class ToolsPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumWidth(280)
-        self.setMaximumWidth(350)
+        # Width is governed by the workbench's QSplitter — the panel itself
+        # only insists on a minimum that's wide enough for "Reference Energies
+        # (cm⁻¹)" not to wrap or get clipped.
+        self.setMinimumWidth(300)
         self.results_items = {}
         self.setup_ui()
 

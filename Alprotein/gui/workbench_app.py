@@ -321,20 +321,8 @@ class ScientificWorkbenchApp(QMainWindow):
         bar.setIconSize(self.iconSize())
         bar.setToolButtonStyle(Qt.ToolButtonTextOnly)
         bar.setContextMenuPolicy(Qt.PreventContextMenu)
-        bar.setStyleSheet(
-            """
-            QToolBar { spacing: 4px; padding: 4px 8px; }
-            QToolButton {
-                padding: 4px 10px;
-                border-radius: 5px;
-            }
-            QToolButton:hover { background: rgba(0,0,0,0.06); }
-            QToolButton[primary="true"] {
-                background: palette(highlight);
-                color: palette(highlighted-text);
-            }
-            """
-        )
+        bar.setObjectName("workbench_toolbar")  # for QSS targeting via the theme
+        self._apply_toolbar_style(bar)
 
         # --- File group -------------------------------------------------
         open_btn = self._toolbar_action(bar, "📂  Open", self.workbench.on_open_project,
@@ -494,6 +482,73 @@ class ScientificWorkbenchApp(QMainWindow):
         QApplication.instance().setStyleSheet(self._theme.qss())
         for key, value in self._theme.chart_style().items():
             plt.rcParams[key] = value
+        # Re-stamp the bespoke chrome each time the theme changes — Qt's
+        # widget-level stylesheets win over the application stylesheet, and
+        # those bits (toolbar, status bar) need explicit token colours so
+        # they don't pick up the platform's native chrome.
+        if hasattr(self, "_toolbar"):
+            self._apply_toolbar_style(self._toolbar)
+        if self.statusBar() is not None:
+            self._apply_statusbar_style()
+
+    def _apply_toolbar_style(self, bar: QToolBar) -> None:
+        """Restyle the toolbar with the current theme tokens."""
+        t = self._theme
+        bar.setStyleSheet(
+            f"""
+            QToolBar#workbench_toolbar {{
+                background-color: {t.bg_panel};
+                border: none;
+                border-bottom: 1px solid {t.border};
+                spacing: 4px;
+                padding: 6px 10px;
+            }}
+            QToolBar#workbench_toolbar QToolButton {{
+                color: {t.text_primary};
+                background: transparent;
+                border: 1px solid transparent;
+                padding: 5px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+            }}
+            QToolBar#workbench_toolbar QToolButton:hover {{
+                background: {t.bg_subtle};
+                border-color: {t.border};
+            }}
+            QToolBar#workbench_toolbar QToolButton[primary="true"] {{
+                background: {t.accent};
+                color: {t.text_inverse};
+                border-color: {t.accent};
+            }}
+            QToolBar#workbench_toolbar QToolButton[primary="true"]:hover {{
+                background: {t.accent_hover};
+                border-color: {t.accent_hover};
+            }}
+            QToolBar#workbench_toolbar QToolButton::menu-indicator {{
+                image: none;
+            }}
+            QToolBar#workbench_toolbar::separator {{
+                background: {t.border};
+                width: 1px;
+                margin: 6px 4px;
+            }}
+            """
+        )
+
+    def _apply_statusbar_style(self) -> None:
+        """Match the status bar to the theme so it doesn't read as native dark."""
+        t = self._theme
+        sb = self.statusBar()
+        sb.setStyleSheet(
+            f"""
+            QStatusBar {{
+                background-color: {t.bg_panel};
+                color: {t.text_secondary};
+                border-top: 1px solid {t.border};
+            }}
+            QStatusBar QLabel {{ color: {t.text_secondary}; }}
+            """
+        )
 
     # ------------------------------------------------------------------
     # Status & progress
