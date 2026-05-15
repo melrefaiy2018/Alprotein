@@ -34,12 +34,13 @@ class ScientificWorkbenchApp(QMainWindow):
     """
 
     def __init__(self):
+        # IMPORTANT: setUnifiedTitleAndToolBarOnMac must be called *before*
+        # the QToolBar is added; otherwise the dark macOS title bar seam
+        # remains. Set it before super-init does any window construction.
         super().__init__()
+        self.setUnifiedTitleAndToolBarOnMac(True)
         self.setWindowTitle("Alprotein Scientific Workbench")
         self.setGeometry(50, 50, 1600, 1000)
-        # Hide the macOS dark title bar by unifying it with the toolbar. On
-        # other platforms this is a no-op.
-        self.setUnifiedTitleAndToolBarOnMac(True)
 
         # Theme state — light by default, switchable from View menu.
         self._theme: Theme = light_theme
@@ -999,11 +1000,16 @@ class ScientificWorkbenchApp(QMainWindow):
 
 def main():
     """Main application entry point"""
-    # Must be set BEFORE QApplication is constructed; silences the Qt
-    # WebEngine "initialized from a plugin" warning and makes
-    # QOpenGLWidget compose cleanly with QtWebEngine.
+    import os
+    # Must be set BEFORE QApplication is constructed:
+    #  - AA_ShareOpenGLContexts silences the "initialized from a plugin"
+    #    warning and lets QtWebEngine compose with QOpenGLWidget.
+    #  - QT_MAC_WANTS_LAYER=1 puts every Qt window on a CALayer on macOS,
+    #    which fixes title-bar tinting and HiDPI redraw glitches.
     from PyQt5.QtCore import QCoreApplication
     QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
+    if sys.platform == "darwin":
+        os.environ.setdefault("QT_MAC_WANTS_LAYER", "1")
 
     app = QApplication(sys.argv)
 

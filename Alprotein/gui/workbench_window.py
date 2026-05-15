@@ -349,22 +349,27 @@ class ScientificWorkbenchWindow(QWidget):
         self.inspector_panel.set_host(self)
         # Sidebar minimums chosen so labels in each card don't clip at the
         # default window width (1600 px).
-        self.inspector_panel.setMinimumWidth(310)
+        self.inspector_panel.setMinimumWidth(330)
         self.tools_panel.setMinimumWidth(300)
         main_splitter.addWidget(self.inspector_panel)
 
         # Proportions: tools | workspace | inspector. Only the centre
         # stretches; the sidebars keep their requested widths unless the
         # user drags them.
-        main_splitter.setSizes([320, 960, 320])
+        main_splitter.setSizes([320, 940, 340])
         main_splitter.setStretchFactor(0, 0)
         main_splitter.setStretchFactor(1, 1)
         main_splitter.setStretchFactor(2, 0)
         main_splitter.setCollapsible(0, False)
         main_splitter.setCollapsible(2, True)  # Inspector can be collapsed.
-        # Wider, visible splitter handles so users notice they're draggable.
-        main_splitter.setHandleWidth(6)
+        # Thin, low-contrast splitter handles so they don't read as scroll
+        # gutters. Still draggable; just visually subdued.
+        main_splitter.setHandleWidth(4)
         main_splitter.setChildrenCollapsible(True)
+        main_splitter.setStyleSheet(
+            "QSplitter::handle { background: transparent; } "
+            "QSplitter::handle:hover { background: rgba(0,0,0,0.06); }"
+        )
 
         main_layout.addWidget(main_splitter)
 
