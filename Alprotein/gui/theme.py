@@ -13,8 +13,23 @@ theme.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+import sys
+from dataclasses import dataclass, field, replace
 from typing import Dict
+
+
+def _platform_font_stack() -> str:
+    """Return a font-family chain whose first hit is installed on this OS.
+
+    Qt logs a warning and burns ~150 ms scanning aliases for every family
+    name it can't resolve, so we keep the stack minimal and OS-specific.
+    """
+    if sys.platform == "darwin":
+        # ``.AppleSystemUIFont`` resolves to SF UI on Big Sur+.
+        return "'.AppleSystemUIFont', 'Helvetica Neue', Helvetica, Arial"
+    if sys.platform.startswith("win"):
+        return "'Segoe UI', Arial"
+    return "'Noto Sans', 'DejaVu Sans', Arial"
 
 
 @dataclass(frozen=True)
@@ -50,10 +65,10 @@ class Theme:
     danger: str
     danger_soft: str
 
-    # Typography
-    font_family: str = (
-        "'Segoe UI', 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif"
-    )
+    # Typography — resolved at import time for the running OS so Qt
+    # doesn't burn ~150 ms scanning aliases that aren't installed (e.g.
+    # "Segoe UI" on macOS). See _platform_font_stack().
+    font_family: str = field(default_factory=_platform_font_stack)
     font_size_body: str = "13px"
     font_size_label: str = "12px"
     font_size_card_title: str = "16px"

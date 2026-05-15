@@ -228,7 +228,7 @@ class FastSpectrumWidget(QWidget):
         exp_layout.addWidget(self._exp_status, 1)
 
         self._rmse_label = QLabel("RMSE: —")
-        self._rmse_label.setStyleSheet("font-family: monospace;")
+        self._rmse_label.setStyleSheet("font-family: Menlo, Consolas, 'Courier New', monospace;")
         exp_layout.addWidget(self._rmse_label)
 
         clear_btn = QPushButton("✕")

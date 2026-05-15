@@ -999,6 +999,12 @@ class ScientificWorkbenchApp(QMainWindow):
 
 def main():
     """Main application entry point"""
+    # Must be set BEFORE QApplication is constructed; silences the Qt
+    # WebEngine "initialized from a plugin" warning and makes
+    # QOpenGLWidget compose cleanly with QtWebEngine.
+    from PyQt5.QtCore import QCoreApplication
+    QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
+
     app = QApplication(sys.argv)
 
     # Set application metadata
@@ -1006,8 +1012,14 @@ def main():
     app.setOrganizationName("Alprotein")
     app.setApplicationVersion("2.0")
 
-    # Set default font
-    font = QFont("Segoe UI", 10)
+    # Default font — pick the OS-native UI face so Qt doesn't waste ~150 ms
+    # resolving a font that isn't installed on this platform.
+    if sys.platform == "darwin":
+        font = QFont(".AppleSystemUIFont", 13)
+    elif sys.platform.startswith("win"):
+        font = QFont("Segoe UI", 10)
+    else:
+        font = QFont("Noto Sans", 10)
     app.setFont(font)
 
     # Create and show main window — apply_styling() inside the window applies

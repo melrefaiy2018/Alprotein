@@ -727,7 +727,11 @@ class ScientificWorkbenchWindow(QWidget):
 
         text_edit = QTextEdit()
         text_edit.setReadOnly(True)
-        text_edit.setStyleSheet("background-color: #ffffff; color: #111111; font-family: monospace; font-size: 10px;")
+        text_edit.setStyleSheet(
+            "background-color: #ffffff; color: #111111; "
+            "font-family: Menlo, Consolas, 'Courier New', monospace; "
+            "font-size: 10px;"
+        )
 
         # Format matrix as text
         n = self.hamiltonian.shape[0]

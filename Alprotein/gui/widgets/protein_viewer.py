@@ -397,7 +397,7 @@ Alternatively, use the export function to generate:
                 html, body {
                     margin: 0; padding: 0; height: 100%;
                     background: var(--bg);
-                    font-family: -apple-system, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+                    font-family: -apple-system, system-ui, "Helvetica Neue", "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
                     color: var(--ink);
                     display: flex; align-items: center; justify-content: center;
                 }
@@ -725,7 +725,7 @@ class ProteinViewer(QWidget):
         scrub_layout.addWidget(self._scrub_slider, 1)
 
         self._scrub_readout = QLabel("k = — / —")
-        self._scrub_readout.setStyleSheet("font-family: monospace;")
+        self._scrub_readout.setStyleSheet("font-family: Menlo, Consolas, 'Courier New', monospace;")
         scrub_layout.addWidget(self._scrub_readout)
 
         layout.addWidget(self._scrub_frame, 0)

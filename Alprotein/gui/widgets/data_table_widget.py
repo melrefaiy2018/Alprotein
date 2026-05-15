@@ -154,7 +154,9 @@ class DataTableWidget(QWidget):
 
             # ID
             id_item = QTableWidgetItem(pigment_id)
-            id_item.setFont(QFont("Monospace", 10, QFont.Bold))
+            mono = QFont("Menlo", 10, QFont.Bold)
+            mono.setStyleHint(QFont.Monospace)
+            id_item.setFont(mono)
             self.table.setItem(i, 0, id_item)
 
             # Site Energy
