@@ -5,3 +5,4 @@ examples/results_isia/
 *.egg-info/
 .claude
 .specify
+.agents
