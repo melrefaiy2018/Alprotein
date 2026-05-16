@@ -24,23 +24,24 @@ class DragDropArea(QLabel):
     file_dropped = pyqtSignal(str)
 
     def __init__(self):
-        super().__init__("🧬 Drag PDB or .alproj here\nor click to browse")
+        super().__init__("Drop PDB or .alproj\nor click to browse")
         self.setAcceptDrops(True)
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumHeight(80)
         self.setStyleSheet("""
             QLabel {
-                border: 1px dashed #e1e1e1;
-                border-radius: 2px;
-                background-color: #f7f7f7;
-                color: #6b6b6b;
+                border: 1px dashed #c4ccd8;
+                border-radius: 6px;
+                background-color: #f7f9fc;
+                color: #687385;
                 font-size: 13px;
-                padding: 10px;
+                font-weight: 600;
+                padding: 12px;
             }
             QLabel:hover {
-                border-color: #111111;
-                background-color: #efefef;
-                color: #111111;
+                border-color: #1f5fd6;
+                background-color: #eef4ff;
+                color: #111827;
             }
         """)
         self.setCursor(QCursor(Qt.PointingHandCursor))
@@ -50,20 +51,22 @@ class DragDropArea(QLabel):
             event.acceptProposedAction()
             self.setStyleSheet("""
                 QLabel {
-                    border: 2px solid #1f7a44;
-                    border-radius: 2px;
-                    background-color: #eaf3ed;
+                    border: 1px solid #1f7a44;
+                    border-radius: 6px;
+                    background-color: #ecfdf3;
                     color: #1f7a44;
+                    font-weight: 600;
                 }
             """)
 
     def dragLeaveEvent(self, event):
         self.setStyleSheet("""
             QLabel {
-                border: 1px dashed #e1e1e1;
-                border-radius: 2px;
-                background-color: #f7f7f7;
-                color: #6b6b6b;
+                border: 1px dashed #c4ccd8;
+                border-radius: 6px;
+                background-color: #f7f9fc;
+                color: #687385;
+                font-weight: 600;
             }
         """)
 
@@ -106,7 +109,7 @@ class ToolsPanel(QWidget):
         # Width is governed by the workbench's QSplitter — the panel itself
         # only insists on a minimum that's wide enough for "Reference Energies
         # (cm⁻¹)" not to wrap or get clipped.
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(320)
         self.results_items = {}
         self.setup_ui()
 
@@ -115,8 +118,8 @@ class ToolsPanel(QWidget):
         self.setProperty("class", "sidebar")
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(16)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
         # Create scroll area for all tools
         scroll = QScrollArea()
@@ -126,7 +129,8 @@ class ToolsPanel(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
-        container_layout.setSpacing(18)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
 
         # Project section
         self.project_group = self.create_project_section()
@@ -163,34 +167,22 @@ class ToolsPanel(QWidget):
 
     def create_project_section(self):
         """Create project information section"""
-        group, layout = make_card("📁 PROJECT", spacing=10)
+        group, layout = make_card("Project", margins=(18, 16, 18, 18), spacing=12)
 
         # Drag-drop area
         self.drag_drop_area = DragDropArea()
         self.drag_drop_area.file_dropped.connect(self.file_dropped.emit)
         layout.addWidget(self.drag_drop_area)
 
-        # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("background-color: #e1e1e1;")
-        layout.addWidget(sep)
-
         # Project name
         self.project_name_label = QLabel("No project loaded")
         self.project_name_label.setWordWrap(True)
-        self.project_name_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #111111;")
+        self.project_name_label.setStyleSheet("font-weight: 700; font-size: 14px; color: #111827;")
         layout.addWidget(self.project_name_label)
 
-        # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("background-color: #e1e1e1;")
-        layout.addWidget(sep)
-
         # Statistics
-        stats_layout = QVBoxLayout()
-        stats_layout.setSpacing(5)
+        stats_layout = QHBoxLayout()
+        stats_layout.setSpacing(10)
 
         self.pigments_label = QLabel("Pigments: -")
         self.pigments_label.setProperty("class", "label")
@@ -208,6 +200,7 @@ class ToolsPanel(QWidget):
 
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(8)
 
         self.open_btn = QPushButton("Open")
         self.open_btn.clicked.connect(self.open_project.emit)
@@ -226,7 +219,7 @@ class ToolsPanel(QWidget):
 
     def create_settings_section(self):
         """Create calculation settings section"""
-        group, layout = make_card("⚙ SETTINGS", spacing=12)
+        group, layout = make_card("Settings", margins=(18, 16, 18, 18), spacing=10)
 
         # Calculation header
         calc_header = QLabel("Calculation")
@@ -234,46 +227,33 @@ class ToolsPanel(QWidget):
         layout.addWidget(calc_header)
 
         # Dielectric CDC
-        cdc_layout = QHBoxLayout()
-        cdc_layout.addWidget(QLabel("ε(CDC)"))
         self.dielectric_cdc = QDoubleSpinBox()
         self.dielectric_cdc.setRange(1.0, 80.0)
         self.dielectric_cdc.setValue(2.0)
         self.dielectric_cdc.setDecimals(2)
         self.dielectric_cdc.setSingleStep(0.1)
         self.dielectric_cdc.valueChanged.connect(self.on_settings_changed)
-        cdc_layout.addWidget(self.dielectric_cdc)
-        layout.addLayout(cdc_layout)
+        layout.addLayout(self._parameter_row("ε(CDC)", self.dielectric_cdc))
 
         # Dielectric TrEsp
-        tresp_layout = QHBoxLayout()
-        tresp_layout.addWidget(QLabel("ε(TrEsp)"))
         self.dielectric_tresp = QDoubleSpinBox()
         self.dielectric_tresp.setRange(1.0, 80.0)
         self.dielectric_tresp.setValue(1.0)
         self.dielectric_tresp.setDecimals(2)
         self.dielectric_tresp.setSingleStep(0.1)
         self.dielectric_tresp.valueChanged.connect(self.on_settings_changed)
-        tresp_layout.addWidget(self.dielectric_tresp)
-        layout.addLayout(tresp_layout)
+        layout.addLayout(self._parameter_row("ε(TrEsp)", self.dielectric_tresp))
 
         # Oscillator strength
-        fosc_layout = QHBoxLayout()
-        fosc_layout.addWidget(QLabel("f_osc"))
         self.f_osc = QDoubleSpinBox()
         self.f_osc.setRange(0.1, 2.0)
         self.f_osc.setValue(0.72)
         self.f_osc.setDecimals(3)
         self.f_osc.setSingleStep(0.01)
         self.f_osc.valueChanged.connect(self.on_settings_changed)
-        fosc_layout.addWidget(self.f_osc)
-        layout.addLayout(fosc_layout)
+        layout.addLayout(self._parameter_row("f_osc", self.f_osc))
 
-        # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("background-color: #e1e1e1; margin: 5px 0;")
-        layout.addWidget(sep)
+        layout.addWidget(self._section_rule())
 
         # Reference Energies header
         ref_header = QLabel("Reference Energies (cm⁻¹)")
@@ -281,37 +261,49 @@ class ToolsPanel(QWidget):
         layout.addWidget(ref_header)
 
         # Eg,a (CLA)
-        ega_layout = QHBoxLayout()
-        ega_layout.addWidget(QLabel("Eg,a (CLA)"))
         self.e0a = QDoubleSpinBox()
         self.e0a.setRange(10000, 20000)
         self.e0a.setValue(14900.0)
         self.e0a.setDecimals(1)
         self.e0a.setSuffix(" cm⁻¹")
         self.e0a.valueChanged.connect(self.on_settings_changed)
-        ega_layout.addWidget(self.e0a)
-        layout.addLayout(ega_layout)
+        layout.addLayout(self._parameter_row("Eg,a (CLA)", self.e0a))
 
         # Eg,b (CHL)
-        egb_layout = QHBoxLayout()
-        egb_layout.addWidget(QLabel("Eg,b (CHL)"))
         self.e0b = QDoubleSpinBox()
         self.e0b.setRange(10000, 20000)
         self.e0b.setValue(15674.0)
         self.e0b.setDecimals(1)
         self.e0b.setSuffix(" cm⁻¹")
         self.e0b.valueChanged.connect(self.on_settings_changed)
-        egb_layout.addWidget(self.e0b)
-        layout.addLayout(egb_layout)
+        layout.addLayout(self._parameter_row("Eg,b (CHL)", self.e0b))
 
         # Action buttons
         layout.addSpacing(10)
 
         return group
 
+    def _parameter_row(self, label_text: str, editor: QWidget) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(10)
+        label = QLabel(label_text)
+        label.setMinimumWidth(92)
+        label.setProperty("class", "label")
+        editor.setMinimumWidth(122)
+        row.addWidget(label)
+        row.addWidget(editor, 1)
+        return row
+
+    def _section_rule(self) -> QFrame:
+        rule = QFrame()
+        rule.setFrameShape(QFrame.HLine)
+        rule.setStyleSheet("background-color: #dde3ea; margin: 4px 0; max-height: 1px;")
+        return rule
+
     def create_progress_section(self):
         """Create progress tracking section"""
-        group, layout = make_card("⏱ PROGRESS", spacing=8)
+        group, layout = make_card("Progress", margins=(18, 16, 18, 18), spacing=8)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -347,49 +339,39 @@ class ToolsPanel(QWidget):
 
     def create_results_section(self):
         """Create results tracking section"""
-        group, layout = make_card("📊 RESULTS", spacing=10)
+        group, layout = make_card("Results", margins=(18, 16, 18, 18), spacing=8)
 
         # Results list
         self.results_items = {}
 
         # Site Energy
         self.site_energy_item = self.create_result_item(
-            "Site Energy", "○ Pending", "site_energies"
+            "Site Energy", "Pending", "site_energies"
         )
         layout.addWidget(self.site_energy_item)
 
         # Hamiltonian
         self.hamiltonian_item = self.create_result_item(
-            "Hamiltonian", "○ Pending", "hamiltonian"
+            "Hamiltonian", "Pending", "hamiltonian"
         )
         layout.addWidget(self.hamiltonian_item)
 
         # Spectrum
         self.spectrum_item = self.create_result_item(
-            "Spectrum", "○ Pending", "spectrum"
+            "Spectrum", "Pending", "spectrum"
         )
         layout.addWidget(self.spectrum_item)
 
         # Exciton Distribution
         self.exciton_item = self.create_result_item(
-            "Exciton Distribution", "○ Pending", "exciton_distribution"
+            "Exciton Distribution", "Pending", "exciton_distribution"
         )
         layout.addWidget(self.exciton_item)
 
         # View All button
         layout.addSpacing(10)
         self.view_all_btn = QPushButton("View All Results")
-        self.view_all_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #111111;
-                border: 1px solid #111111;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #efefef;
-            }
-        """)
+        self.view_all_btn.setProperty("class", "secondary")
         self.view_all_btn.clicked.connect(lambda: self.view_results.emit("all"))
         layout.addWidget(self.view_all_btn)
 
@@ -398,25 +380,26 @@ class ToolsPanel(QWidget):
     def create_result_item(self, name, status, result_type):
         """Create a result item widget"""
         item = QFrame()
-        item.setFrameShape(QFrame.StyledPanel)
+        item.setObjectName("result_item")
+        item.setFrameShape(QFrame.NoFrame)
         item.setStyleSheet("""
-            QFrame {
-                background-color: #f3f3f3;
-                border-radius: 2px;
-                padding: 8px;
+            QFrame#result_item {
+                background-color: transparent;
+                border: none;
             }
         """)
 
-        item_layout = QVBoxLayout(item)
-        item_layout.setContentsMargins(8, 8, 8, 8)
-        item_layout.setSpacing(4)
+        item_layout = QHBoxLayout(item)
+        item_layout.setContentsMargins(0, 6, 0, 6)
+        item_layout.setSpacing(8)
 
         name_label = QLabel(name)
-        name_label.setStyleSheet("font-weight: bold; color: #111111;")
-        item_layout.addWidget(name_label)
+        name_label.setStyleSheet("font-weight: 700; color: #111827;")
+        item_layout.addWidget(name_label, 1)
 
         status_label = QLabel(status)
-        status_label.setStyleSheet("color: #6b6b6b; font-size: 11px;")
+        status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        status_label.setStyleSheet("color: #687385; font-size: 11px; font-weight: 700;")
         item_layout.addWidget(status_label)
 
         # Store reference for later updates
@@ -472,11 +455,11 @@ class ToolsPanel(QWidget):
         self.atoms_label.setText(f"Atoms: {atoms:,}")
 
         if validated:
-            self.validation_label.setText("✓ Validated")
-            self.validation_label.setStyleSheet("color: #1f7a44; font-weight: bold;")
+            self.validation_label.setText("Validated")
+            self.validation_label.setStyleSheet("color: #1f7a44; font-weight: 700;")
         else:
-            self.validation_label.setText("✗ Not validated")
-            self.validation_label.setStyleSheet("color: #8b2b2b; font-weight: bold;")
+            self.validation_label.setText("Not validated")
+            self.validation_label.setStyleSheet("color: #8b2b2b; font-weight: 700;")
 
         self.props_btn.setEnabled(True)
     def update_result_status(self, result_type, status, details=""):
@@ -485,19 +468,19 @@ class ToolsPanel(QWidget):
             item = self.results_items[result_type]
 
             if status == "complete":
-                item['status_label'].setText(f"✓ Complete\n{details}")
-                item['status_label'].setStyleSheet("color: #1f7a44; font-weight: bold; font-size: 11px;")
+                item['status_label'].setText("Complete")
+                item['status_label'].setStyleSheet("color: #1f7a44; font-weight: 700; font-size: 11px;")
             elif status == "running":
-                item['status_label'].setText(f"▶ Running...\n{details}")
-                item['status_label'].setStyleSheet("color: #8a6d1f; font-weight: bold; font-size: 11px;")
+                item['status_label'].setText("Running")
+                item['status_label'].setStyleSheet("color: #8a6d1f; font-weight: 700; font-size: 11px;")
             elif status == "error":
-                item['status_label'].setText(f"✗ Error\n{details}")
-                item['status_label'].setStyleSheet("color: #8b2b2b; font-weight: bold; font-size: 11px;")
+                item['status_label'].setText("Error")
+                item['status_label'].setStyleSheet("color: #8b2b2b; font-weight: 700; font-size: 11px;")
             elif status == "cancelled":
-                item['status_label'].setText("⏹ Cancelled")
-                item['status_label'].setStyleSheet("color: #8a6d1f; font-weight: bold; font-size: 11px;")
+                item['status_label'].setText("Cancelled")
+                item['status_label'].setStyleSheet("color: #8a6d1f; font-weight: 700; font-size: 11px;")
             else:
-                item['status_label'].setText("○ Pending")
+                item['status_label'].setText("Pending")
                 item['status_label'].setStyleSheet("color: #6b6b6b; font-size: 11px;")
 
     def get_parameters(self):

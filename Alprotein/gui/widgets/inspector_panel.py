@@ -97,8 +97,8 @@ class InspectorPanel(QWidget):
     def _setup_ui(self) -> None:
         self.setProperty("class", "sidebar")
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 12, 12, 12)
-        outer.setSpacing(12)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -110,12 +110,12 @@ class InspectorPanel(QWidget):
         scroll.setWidget(body)
         v = QVBoxLayout(body)
         v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(12)
+        v.setSpacing(0)
 
         # --- Header card -------------------------------------------------
-        header, h_layout = make_card("🧭 INSPECTOR", spacing=6)
+        header, h_layout = make_card("Inspector", margins=(18, 16, 18, 18), spacing=8)
         self.title_label = QLabel("No selection")
-        self.title_label.setStyleSheet("font-weight: 600; font-size: 14px;")
+        self.title_label.setStyleSheet("font-weight: 700; font-size: 14px; color: #111827;")
         h_layout.addWidget(self.title_label)
 
         self.subtitle_label = QLabel("Click a pigment in the 3D viewer or Hamiltonian.")
@@ -123,7 +123,7 @@ class InspectorPanel(QWidget):
         self.subtitle_label.setWordWrap(True)
         h_layout.addWidget(self.subtitle_label)
 
-        self.focus_btn = QPushButton("Focus camera on pigment")
+        self.focus_btn = QPushButton("Focus camera")
         self.focus_btn.setProperty("class", "primary")
         self.focus_btn.setEnabled(False)
         self.focus_btn.clicked.connect(self._emit_focus)
@@ -155,7 +155,7 @@ class InspectorPanel(QWidget):
         ]))
 
         # --- Override editor --------------------------------------------
-        override_card, ov = make_card("Site-energy override", spacing=6)
+        override_card, ov = make_card("Site-energy override", margins=(18, 16, 18, 18), spacing=8)
 
         self.override_spin = QDoubleSpinBox()
         self.override_spin.setRange(8_000.0, 22_000.0)
@@ -180,7 +180,7 @@ class InspectorPanel(QWidget):
         v.addWidget(override_card)
 
         # --- Live View Tools card ----------------------------------------
-        view_tools_card, vt = make_card("🎚 Live View Tools", spacing=6)
+        view_tools_card, vt = make_card("Live view", margins=(18, 16, 18, 18), spacing=8)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Color by"))
@@ -212,7 +212,7 @@ class InspectorPanel(QWidget):
         v.addWidget(view_tools_card)
 
         # --- Domains card ------------------------------------------------
-        self._domains_card, self._domains_layout = make_card("🧩 Domains", spacing=6)
+        self._domains_card, self._domains_layout = make_card("Domains", margins=(18, 16, 18, 18), spacing=8)
         # Track dynamically-rendered domain rows so set_domains() can clear
         # them without relying on layout indices.
         self._domain_row_widgets: list[QWidget] = []
@@ -241,7 +241,7 @@ class InspectorPanel(QWidget):
         v.addWidget(self._domains_card)
 
         # --- Notebook card -----------------------------------------------
-        notebook_card, nb = make_card("📓 Notebook", spacing=4)
+        notebook_card, nb = make_card("Notebook", margins=(18, 16, 18, 18), spacing=6)
         hint = QLabel("Per-project notes (saved inside .alproj).")
         hint.setProperty("class", "label")
         hint.setWordWrap(True)
@@ -327,16 +327,19 @@ class InspectorPanel(QWidget):
             insert_at += 1
 
     def _build_kv_card(self, title: str, rows: list[tuple[str, str]]) -> QFrame:
-        card, layout = make_card(title, spacing=4)
+        card, layout = make_card(title, margins=(18, 16, 18, 18), spacing=6)
         for label_text, key in rows:
             row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(10)
             label = QLabel(label_text)
             label.setProperty("class", "label")
+            label.setMinimumWidth(118)
             value = QLabel("—")
-            value.setStyleSheet("font-weight: 600;")
+            value.setStyleSheet("font-weight: 700; color: #111827;")
             value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             value.setObjectName(f"inspector_value_{key}")
-            row.addWidget(label, 1)
+            row.addWidget(label)
             row.addWidget(value, 1, Qt.AlignRight)
             layout.addLayout(row)
         return card

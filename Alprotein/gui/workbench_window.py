@@ -304,18 +304,20 @@ class ScientificWorkbenchWindow(QWidget):
 
         # Main horizontal splitter (workspace | tools)
         main_splitter = QSplitter(Qt.Horizontal)
+        main_splitter.setObjectName("main_workspace_splitter")
 
         # LEFT: Workspace with tabs (3D viewer, dashboard, table)
         self.workspace_tabs = QTabWidget()
+        self.workspace_tabs.setDocumentMode(True)
         # Stylesheet removed to use global styles
 
         # Tab 0: 3D Structure Viewer (KEEP)
         self.protein_viewer = ProteinViewer()
-        self.workspace_tabs.addTab(self.protein_viewer, "🔬 3D Structure")
+        self.workspace_tabs.addTab(self.protein_viewer, "3D Structure")
 
         # Tab 1: Hamiltonian (NEW)
         self.hamiltonian_widget = HamiltonianWidget()
-        self.workspace_tabs.addTab(self.hamiltonian_widget, "📐 Hamiltonian")
+        self.workspace_tabs.addTab(self.hamiltonian_widget, "Hamiltonian")
 
         # Tab 2: Spectra — pyqtgraph by default; if pyqtgraph isn't
         # installed we transparently fall back to the matplotlib widget
@@ -326,7 +328,7 @@ class ScientificWorkbenchWindow(QWidget):
         else:
             self.spectrum_widget = SpectrumPlotWidget()
             self._spectrum_is_fast = False
-        self.workspace_tabs.addTab(self.spectrum_widget, "📊 Spectra")
+        self.workspace_tabs.addTab(self.spectrum_widget, "Spectra")
         # Legacy alias retained so older code paths that still reference
         # ``spectrum_widget_fast`` keep working.
         self.spectrum_widget_fast = (
@@ -335,7 +337,7 @@ class ScientificWorkbenchWindow(QWidget):
 
         # Tab 3: Data Analysis (ENHANCED)
         self.data_analysis_tab = self.create_data_analysis_tab()
-        self.workspace_tabs.addTab(self.data_analysis_tab, "📋 Data Analysis")
+        self.workspace_tabs.addTab(self.data_analysis_tab, "Data Analysis")
 
         # LEFT: Tools Panel
         self.tools_panel = ToolsPanel()
@@ -349,14 +351,14 @@ class ScientificWorkbenchWindow(QWidget):
         self.inspector_panel.set_host(self)
         # Sidebar minimums chosen so labels in each card don't clip at the
         # default window width (1600 px).
-        self.inspector_panel.setMinimumWidth(330)
+        self.inspector_panel.setMinimumWidth(320)
         self.tools_panel.setMinimumWidth(300)
         main_splitter.addWidget(self.inspector_panel)
 
         # Proportions: tools | workspace | inspector. Only the centre
         # stretches; the sidebars keep their requested widths unless the
         # user drags them.
-        main_splitter.setSizes([320, 940, 340])
+        main_splitter.setSizes([310, 1010, 320])
         main_splitter.setStretchFactor(0, 0)
         main_splitter.setStretchFactor(1, 1)
         main_splitter.setStretchFactor(2, 0)
@@ -364,11 +366,11 @@ class ScientificWorkbenchWindow(QWidget):
         main_splitter.setCollapsible(2, True)  # Inspector can be collapsed.
         # Thin, low-contrast splitter handles so they don't read as scroll
         # gutters. Still draggable; just visually subdued.
-        main_splitter.setHandleWidth(4)
+        main_splitter.setHandleWidth(1)
         main_splitter.setChildrenCollapsible(True)
         main_splitter.setStyleSheet(
-            "QSplitter::handle { background: transparent; } "
-            "QSplitter::handle:hover { background: rgba(0,0,0,0.06); }"
+            "QSplitter#main_workspace_splitter::handle { background: #dde3ea; } "
+            "QSplitter#main_workspace_splitter::handle:hover { background: #c4ccd8; }"
         )
 
         main_layout.addWidget(main_splitter)

@@ -45,15 +45,15 @@ class Protein3DRenderer:
             <script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
             <style>
                 :root {
-                    --bg: #f6f8fb;
-                    --panel: #ffffff;
-                    --border: #e6e8ef;
-                    --text: #1f2a3d;
-                    --muted: #6b7280;
-                    --accent: #2563eb;
-                    --accent-soft: #e8f0ff;
-                    --shadow: 0 12px 30px rgba(31, 42, 61, 0.12);
-                    --radius: 10px;
+                    --bg: #162033;
+                    --panel: rgba(255, 255, 255, 0.94);
+                    --border: rgba(215, 222, 232, 0.88);
+                    --text: #111827;
+                    --muted: #687385;
+                    --accent: #1f5fd6;
+                    --accent-soft: #e7efff;
+                    --shadow: 0 18px 50px rgba(4, 12, 26, 0.18);
+                    --radius: 8px;
                     --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
                 }
                 * { box-sizing: border-box; }
@@ -72,27 +72,28 @@ class Protein3DRenderer:
                 }
                 #info-panel {
                     position: absolute;
-                    top: 16px;
-                    right: 16px;
+                    top: 18px;
+                    right: 18px;
                     background: var(--panel);
                     border: 1px solid var(--border);
                     border-radius: var(--radius);
-                    padding: 14px 16px;
+                    padding: 13px 15px;
                     box-shadow: var(--shadow);
+                    backdrop-filter: blur(14px);
                     z-index: 1000;
-                    min-width: 220px;
+                    min-width: 300px;
                 }
                 #info-panel h3 {
                     margin: 0 0 8px 0;
-                    font-size: 15px;
+                    font-size: 14px;
                     font-weight: 700;
                     display: flex;
                     align-items: center;
                     gap: 8px;
                 }
                 #info-panel .dot {
-                    width: 10px;
-                    height: 10px;
+                    width: 8px;
+                    height: 8px;
                     background: var(--accent);
                     border-radius: 50%;
                     box-shadow: 0 0 0 4px var(--accent-soft);
@@ -118,23 +119,23 @@ class Protein3DRenderer:
                     position: absolute;
                     bottom: 16px;
                     right: 16px;
-                    background: rgba(255, 255, 255, 0.88);
+                    background: rgba(255, 255, 255, 0.9);
                     border: 1px solid var(--border);
-                    border-radius: 999px;
+                    border-radius: 8px;
                     box-shadow: var(--shadow);
                     backdrop-filter: blur(10px);
-                    padding: 6px;
+                    padding: 5px;
                     display: flex;
-                    gap: 6px;
+                    gap: 4px;
                     align-items: center;
                     z-index: 1000;
                 }
                 .control-button {
                     border: 1px solid var(--border);
-                    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
+                    background: #ffffff;
                     color: var(--text);
-                    border-radius: 999px;
-                    padding: 8px 12px;
+                    border-radius: 6px;
+                    padding: 7px 11px;
                     font-size: 12px;
                     font-weight: 600;
                     display: inline-flex;
@@ -165,7 +166,7 @@ class Protein3DRenderer:
                     background: rgba(255, 255, 255, 0.95);
                     border: 1px solid var(--border);
                     color: var(--text);
-                    padding: 12px 14px;
+                    padding: 10px 12px;
                     border-radius: var(--radius);
                     font-size: 12px;
                     z-index: 1000;
@@ -193,13 +194,13 @@ class Protein3DRenderer:
                     top: 16px;
                     left: 50%;
                     transform: translateX(-50%);
-                    background: rgba(31, 42, 61, 0.85);
+                    background: rgba(17, 24, 39, 0.84);
                     color: #ffffff;
                     padding: 8px 14px;
                     border-radius: 999px;
                     font-size: 12px;
                     z-index: 1000;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
                     animation: fadeOut 5s ease forwards;
                 }
                 @keyframes fadeOut {
@@ -215,17 +216,17 @@ class Protein3DRenderer:
                 <h3><span class="dot"></span>Alprotein Structure</h3>
                 <div style="font-size: 12px; margin-bottom: 6px; font-weight: 600; color: var(--text);">__STRUCT_NAME__</div>
                 <div class="stat-row">
-                    <span class="stat">🧬 __PIGMENT_COUNT__ pigments</span>
-                    <span class="stat">🧩 __CHAIN_COUNT__ chains</span>
+                    <span class="stat">__PIGMENT_COUNT__ pigments</span>
+                    <span class="stat">__CHAIN_COUNT__ chains</span>
                 </div>
                 <div class="tip">Click atoms to inspect · Drag to rotate · Scroll to zoom</div>
             </div>
 
             <div id="controls">
-                <button class="control-button" onclick="resetView()">🔄 Reset</button>
-                <button class="control-button" onclick="toggleProtein()">👁️ Protein</button>
-                <button class="control-button" onclick="togglePigments()">🧬 Pigments</button>
-                <button class="control-button" onclick="focusOnPigments()">🎯 Focus</button>
+                <button class="control-button" onclick="resetView()">Reset</button>
+                <button class="control-button" onclick="toggleProtein()">Protein</button>
+                <button class="control-button" onclick="togglePigments()">Pigments</button>
+                <button class="control-button" onclick="focusOnPigments()">Focus</button>
             </div>
 
             <div id="selection-info">
@@ -240,7 +241,7 @@ class Protein3DRenderer:
                 // Initialize viewer
                 let viewer = $3Dmol.createViewer('viewer', {
                     defaultcolors: $3Dmol.elementColors.rasmol,
-                    backgroundColor: '#1f2a3d'
+                    backgroundColor: '#162033'
                 });
 
                 // Pigment information

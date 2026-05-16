@@ -329,14 +329,14 @@ class ScientificWorkbenchApp(QMainWindow):
         self._apply_toolbar_style(bar)
 
         # --- File group -------------------------------------------------
-        open_btn = self._toolbar_action(bar, "📂  Open", self.workbench.on_open_project,
+        open_btn = self._toolbar_action(bar, "Open", self.workbench.on_open_project,
                                          tooltip="Open a PDB file (⌘O)", primary=True)
-        save_btn = self._toolbar_action(bar, "💾  Save", self.on_save_project,
+        save_btn = self._toolbar_action(bar, "Save", self.on_save_project,
                                          tooltip="Save the current session as .alproj (⌘S)")
 
         # Recent ▾ — a tool button with a popup menu that we rebuild on display.
         self._toolbar_recent_btn = QToolButton(bar)
-        self._toolbar_recent_btn.setText("🕒  Recent ▾")
+        self._toolbar_recent_btn.setText("Recent ▾")
         self._toolbar_recent_btn.setPopupMode(QToolButton.InstantPopup)
         self._toolbar_recent_btn.setToolTip("Recently opened files")
         self._toolbar_recent_menu = QMenu(self._toolbar_recent_btn)
@@ -355,11 +355,11 @@ class ScientificWorkbenchApp(QMainWindow):
         bar.addSeparator()
 
         # --- Calculate --------------------------------------------------
-        self._toolbar_action(bar, "▶  Run All",
+        self._toolbar_action(bar, "Run All",
                               self.on_run_all_calculations,
                               tooltip="Run site energies → Hamiltonian → spectrum (⌘⇧R)",
                               primary=True)
-        self._stop_btn = self._toolbar_action(bar, "■  Stop",
+        self._stop_btn = self._toolbar_action(bar, "Stop",
                                               self.cancel_current_calculation,
                                               tooltip="Cancel running calculation (⌘.)")
 
@@ -367,7 +367,7 @@ class ScientificWorkbenchApp(QMainWindow):
 
         # --- Export / theme / palette -----------------------------------
         export_btn = QToolButton(bar)
-        export_btn.setText("📤  Export ▾")
+        export_btn.setText("Export ▾")
         export_btn.setPopupMode(QToolButton.InstantPopup)
         export_menu = QMenu(export_btn)
         export_menu.addAction("Data…", self.on_export_data)
@@ -376,7 +376,7 @@ class ScientificWorkbenchApp(QMainWindow):
         bar.addWidget(export_btn)
 
         theme_btn = QToolButton(bar)
-        theme_btn.setText("🎨  Theme ▾")
+        theme_btn.setText("Theme ▾")
         theme_btn.setPopupMode(QToolButton.InstantPopup)
         theme_menu = QMenu(theme_btn)
         theme_menu.addAction("Light", lambda: self.set_theme("light"))
@@ -389,7 +389,7 @@ class ScientificWorkbenchApp(QMainWindow):
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         bar.addWidget(spacer)
 
-        self._toolbar_action(bar, "⌘K  Command palette",
+        self._toolbar_action(bar, "⌘K Command palette",
                               self.palette.toggle,
                               tooltip="Search any action (⌘K)")
 
@@ -419,7 +419,6 @@ class ScientificWorkbenchApp(QMainWindow):
             return
         for entry in entries:
             label = Path(entry.path).name
-            label = ("📦 " if entry.kind == "project" else "🧬 ") + label
             action = menu.addAction(label)
             action.setStatusTip(entry.path)
             entry_path, entry_kind = entry.path, entry.kind
@@ -505,15 +504,16 @@ class ScientificWorkbenchApp(QMainWindow):
                 border: none;
                 border-bottom: 1px solid {t.border};
                 spacing: 4px;
-                padding: 6px 10px;
+                padding: 8px 14px;
             }}
             QToolBar#workbench_toolbar QToolButton {{
                 color: {t.text_primary};
                 background: transparent;
                 border: 1px solid transparent;
-                padding: 5px 10px;
-                border-radius: 6px;
+                padding: 5px 11px;
+                border-radius: 5px;
                 font-size: 12px;
+                font-weight: 600;
             }}
             QToolBar#workbench_toolbar QToolButton:hover {{
                 background: {t.bg_subtle};

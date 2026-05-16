@@ -75,8 +75,8 @@ class Theme:
     font_size_page_title: str = "22px"
 
     # Spacing & radius
-    radius_card: str = "10px"
-    radius_input: str = "6px"
+    radius_card: str = "8px"
+    radius_input: str = "5px"
     radius_pill: str = "999px"
     padding_card: str = "14px"
 
@@ -97,7 +97,10 @@ class Theme:
 
         /* Sidebar surfaces */
         .sidebar, QWidget#sidebar {{
-            background-color: {t.bg_subtle};
+            background-color: {t.bg_panel};
+        }}
+        QSplitter {{
+            background-color: {t.border};
         }}
 
         /* Scrollarea */
@@ -119,6 +122,12 @@ class Theme:
             border: 1px solid {t.border};
             border-radius: {t.radius_card};
         }}
+        QFrame.section {{
+            background-color: {t.bg_panel};
+            border: none;
+            border-bottom: 1px solid {t.border};
+            border-radius: 0;
+        }}
         QGroupBox.card {{
             padding: {t.padding_card};
             margin-top: 16px;
@@ -139,10 +148,10 @@ class Theme:
         QLabel.card-title {{
             font-size: 11px;
             font-weight: 700;
-            letter-spacing: 1.5px;
+            letter-spacing: 1.2px;
             color: {t.text_secondary};
             text-transform: uppercase;
-            padding-bottom: 4px;
+            padding-bottom: 2px;
         }}
         QLabel.page-title {{
             font-size: {t.font_size_page_title};
@@ -161,10 +170,10 @@ class Theme:
 
         /* Buttons */
         QPushButton {{
-            height: 32px;
+            height: 30px;
             border-radius: {t.radius_input};
-            font-weight: 500;
-            padding: 0 14px;
+            font-weight: 600;
+            padding: 0 12px;
             background-color: {t.bg_panel};
             color: {t.text_primary};
             border: 1px solid {t.border_strong};
@@ -212,27 +221,43 @@ class Theme:
             height: 30px;
             border: 1px solid {t.border_strong};
             border-radius: {t.radius_input};
-            padding: 0 8px;
+            padding: 0 7px;
             background-color: {t.bg_panel};
             color: {t.text_primary};
+        }}
+        QAbstractSpinBox::up-button,
+        QAbstractSpinBox::down-button {{
+            width: 0;
+            border: none;
+        }}
+        QAbstractSpinBox::up-arrow,
+        QAbstractSpinBox::down-arrow {{
+            width: 0;
+            height: 0;
         }}
         QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{
             border-color: {t.accent};
         }}
 
         /* Tabs */
+        QTabWidget {{
+            background-color: {t.bg_app};
+        }}
         QTabWidget::pane {{
             border: none;
             background: transparent;
         }}
+        QTabBar {{
+            background-color: {t.bg_panel};
+        }}
         QTabBar::tab {{
             background: transparent;
             color: {t.text_secondary};
-            padding: 8px 14px;
+            padding: 12px 18px 10px 18px;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 700;
             border-bottom: 2px solid transparent;
-            margin-right: 2px;
+            margin-right: 0;
         }}
         QTabBar::tab:selected {{
             color: {t.text_primary};
@@ -280,6 +305,31 @@ class Theme:
             border-radius: 3px;
         }}
 
+        /* Scrollbars */
+        QScrollBar:vertical {{
+            background: transparent;
+            width: 10px;
+            margin: 2px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {t.border_strong};
+            border-radius: 5px;
+            min-height: 36px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {t.text_secondary};
+        }}
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            height: 0;
+            border: none;
+            background: transparent;
+        }}
+        QScrollBar::add-page:vertical,
+        QScrollBar::sub-page:vertical {{
+            background: transparent;
+        }}
+
         /* Tooltips */
         QToolTip {{
             background-color: {t.bg_panel};
@@ -324,17 +374,17 @@ class Theme:
 
 light_theme = Theme(
     name="light",
-    bg_app="#f4f5f7",
+    bg_app="#eef1f5",
     bg_panel="#ffffff",
-    bg_subtle="#f7f8fa",
-    text_primary="#14181f",
-    text_secondary="#6b7280",
+    bg_subtle="#f7f9fc",
+    text_primary="#111827",
+    text_secondary="#687385",
     text_inverse="#ffffff",
-    border="#e3e6ea",
-    border_strong="#c9ced6",
-    accent="#2563eb",
-    accent_hover="#1d4ed8",
-    accent_soft="#dbeafe",
+    border="#dde3ea",
+    border_strong="#c4ccd8",
+    accent="#1f5fd6",
+    accent_hover="#174db4",
+    accent_soft="#e7efff",
     success="#1f7a44",
     success_soft="#dcfce7",
     warning="#8a6d1f",

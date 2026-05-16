@@ -1,15 +1,14 @@
 """
-Shared helpers for building the Alprotein workbench's card UI.
+Shared helpers for building Alprotein workbench sidebar sections.
 
-A "card" is a rounded, bordered panel with an optional title row at the top.
+A section is a lightly separated panel with an optional title row at the top.
 Qt's ``QGroupBox`` titles sit awkwardly *on top of* the border on macOS
 (Big Sur and later) — they float in the widget's margin instead of cleanly
 overlapping the border. That's the "PROJECT label floating outside the
 card" effect.
 
-Using ``QFrame`` + an internal ``QLabel`` instead gives us full control over
-the layout, no platform-specific quirks, and matches the HTML mockup
-1-for-1. All workbench panels migrate onto this helper.
+Using ``QFrame`` + an internal ``QLabel`` gives us full control over layout
+without platform-specific QGroupBox title quirks.
 """
 
 from __future__ import annotations
@@ -27,14 +26,13 @@ def make_card(
     margins: Tuple[int, int, int, int] = (14, 12, 14, 14),
     spacing: int = 8,
 ) -> Tuple[QFrame, QVBoxLayout]:
-    """Build a card frame with an optional title row.
+    """Build a sidebar section with an optional title row.
 
-    Returns ``(card, body_layout)`` so callers can simply
-    ``body_layout.addWidget(...)`` their own content. The card itself
-    already has ``class="card"`` set so the theme stylesheet styles it.
+    Returns ``(frame, body_layout)`` so callers can simply
+    ``body_layout.addWidget(...)`` their own content.
     """
     card = QFrame(parent)
-    card.setProperty("class", "card")
+    card.setProperty("class", "section")
     card.setFrameShape(QFrame.NoFrame)
 
     outer = QVBoxLayout(card)

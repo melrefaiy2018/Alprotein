@@ -219,6 +219,8 @@ class Viewer3D(QWidget):
 
         # Setup layout
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         if WEBENGINE_AVAILABLE:
             # Use web engine for 3D visualization
@@ -291,7 +293,7 @@ class Viewer3D(QWidget):
     def setup_fallback_view(self, layout):
         """Setup fallback view when web engine is not available"""
         # Info label
-        info_label = QLabel("""🧬 3D Visualization
+        info_label = QLabel("""3D Visualization
         
 The interactive 3D viewer requires QtWebEngineWidgets.
 Install it with: pip install PyQtWebEngine
@@ -302,11 +304,11 @@ Alternatively, use the export function to generate:
 • HTML files for external viewing""")
         info_label.setStyleSheet("""
             QLabel {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                          stop:0 #f7f7f7, stop:1 #efefef);
-                color: #111111;
-                padding: 20px;
-                border-radius: 2px;
+                background: #f7f9fc;
+                color: #111827;
+                padding: 24px;
+                border: 1px solid #dde3ea;
+                border-radius: 8px;
                 font-size: 14px;
                 text-align: center;
             }
@@ -321,9 +323,9 @@ Alternatively, use the export function to generate:
         self.structure_info.setMaximumHeight(200)
         self.structure_info.setStyleSheet("""
             QTextEdit {
-                background-color: #f3f3f3;
-                border: 1px solid #e1e1e1;
-                border-radius: 2px;
+                background-color: #ffffff;
+                border: 1px solid #dde3ea;
+                border-radius: 8px;
                 padding: 10px;
                 font-family: "Courier New", monospace;
                 font-size: 12px;
@@ -333,19 +335,19 @@ Alternatively, use the export function to generate:
         layout.addWidget(self.structure_info)
         
         # Export button
-        export_button = QPushButton("📁 Export for External Visualization")
+        export_button = QPushButton("Export for External Visualization")
         export_button.setStyleSheet("""
             QPushButton {
-                background-color: #111111;
+                background-color: #1f5fd6;
                 color: #ffffff;
-                border: 1px solid #111111;
-                padding: 10px 20px;
-                border-radius: 2px;
-                font-size: 14px;
-                font-weight: bold;
+                border: 1px solid #1f5fd6;
+                padding: 0 20px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 700;
             }
             QPushButton:hover {
-                background-color: #000000;
+                background-color: #174db4;
             }
         """)
         export_button.clicked.connect(self.export_visualization)
@@ -386,12 +388,12 @@ Alternatively, use the export function to generate:
             <title>Alprotein 3D Viewer</title>
             <style>
                 :root {
-                    --bg: #f4f5f7;
+                    --bg: #eef1f5;
                     --panel: #ffffff;
-                    --border: #e3e6ea;
-                    --ink: #14181f;
-                    --muted: #6b7280;
-                    --accent: #2563eb;
+                    --border: #dde3ea;
+                    --ink: #111827;
+                    --muted: #687385;
+                    --accent: #1f5fd6;
                 }
                 * { box-sizing: border-box; }
                 html, body {
@@ -404,7 +406,7 @@ Alternatively, use the export function to generate:
                 .card {
                     background: var(--panel);
                     border: 1px solid var(--border);
-                    border-radius: 12px;
+                    border-radius: 8px;
                     padding: 32px 40px;
                     max-width: 460px;
                     text-align: center;
@@ -429,7 +431,6 @@ Alternatively, use the export function to generate:
         </head>
         <body>
             <div class="card">
-                <div class="glyph">🧬</div>
                 <h1>No structure loaded</h1>
                 <p>Drag a <b>.pdb</b> or <b>.alproj</b> file onto the project panel — or use Open.</p>
                 <div class="keys">
@@ -710,7 +711,7 @@ class ProteinViewer(QWidget):
         self._scrub_frame.setFrameShape(QFrame.NoFrame)
         self._scrub_frame.setEnabled(False)  # enabled when eigenvectors are set
         scrub_layout = QHBoxLayout(self._scrub_frame)
-        scrub_layout.setContentsMargins(10, 8, 10, 8)
+        scrub_layout.setContentsMargins(12, 8, 12, 8)
         scrub_layout.setSpacing(10)
 
         self._scrub_title = QLabel("Exciton k")
